@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- DayDrift Luxury Dark Palette -->
+    <color name="bg_dark">#0B0E14</color>
+    <color name="bg_surface">#131824</color>
+    <color name="bg_surface_elevated">#1A2132</color>
+    <color name="bg_surface_card">#161D2B</color>
+    <color name="border_card">#273349</color>
+    <color name="border_focused">#21C998</color>
+
+    <!-- Accents -->
+    <color name="primary">#21C998</color>
+    <color name="primary_variant">#16A37A</color>
+    <color name="primary_light">#4EE5B7</color>
+    <color name="secondary">#6366F1</color>
+    <color name="secondary_variant">#4F46E5</color>
+    <color name="accent_pink">#EC4899</color>
+    <color name="accent_amber">#F59E0B</color>
+    <color name="accent_cyan">#06B6D4</color>
+
+    <!-- Text -->
+    <color name="text_primary">#F8FAFC</color>
+    <color name="text_secondary">#94A3B8</color>
+    <color name="text_muted">#64748B</color>
+
+    <!-- Status -->
+    <color name="error">#EF4444</color>
+    <color name="success">#10B981</color>
+    <color name="warning">#F59E0B</color>
+
+    <!-- Utility -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
+    <color name="overlay_dim">#99000000</color>
+    <color name="glass_bg">#33FFFFFF</color>
+    <color name="glass_border">#44FFFFFF</color>
+</resources>

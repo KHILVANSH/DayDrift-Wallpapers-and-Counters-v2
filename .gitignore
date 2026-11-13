@@ -1,0 +1,20 @@
+# Gradle & Build outputs
+.gradle/
+build/
+app/build/
+*.apk
+*.apks
+*.idsig
+*.log
+screenshot.png
+
+# IDE & OS
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+captures/
+.externalNativeBuild/
+
+# Legacy archive folder
+archive_legacy/

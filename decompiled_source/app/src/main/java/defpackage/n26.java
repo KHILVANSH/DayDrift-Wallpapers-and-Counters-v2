@@ -1,7 +1,0 @@
-package defpackage;
-
-/* JADX INFO: compiled from: r8-map-id-1b621dd7b707c396c212f41be6d00ff590e9ac32010b4c074222f71c8fe5d15f */
-/* JADX INFO: loaded from: classes.dex */
-public abstract class n26 {
-    public static final d26 a = new d26("do_not_log_to_logcat", Boolean.class, false, false);
-}

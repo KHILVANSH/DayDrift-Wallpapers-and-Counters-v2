@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DayDrift</string>
+    <string name="app_title">DayDrift Wallpapers &amp; Counters</string>
+    <string name="wallpaper_service_label">DayDrift Live Wallpaper</string>
+    <string name="wallpaper_description">Display custom live countdowns and beautiful wallpapers on your home and lock screen.</string>
+
+    <!-- Navigation Tabs -->
+    <string name="tab_counters">Counters</string>
+    <string name="tab_studio">Wallpaper Studio</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- Actions -->
+    <string name="action_add_counter">New Counter</string>
+    <string name="action_set_wallpaper">Set Live Wallpaper</string>
+    <string name="action_enlarge_preview">Enlarge Preview</string>
+    <string name="action_reset">Reset</string>
+    <string name="action_reset_rotation">Reset Rotation</string>
+    <string name="action_save">Save Changes</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+
+    <!-- Presets -->
+    <string name="preset_center">Center</string>
+    <string name="preset_top">Top Center</string>
+    <string name="preset_bottom">Bottom Center</string>
+    <string name="preset_top_left">Top Left</string>
+    <string name="preset_top_right">Top Right</string>
+    <string name="preset_bottom_left">Bottom Left</string>
+    <string name="preset_bottom_right">Bottom Right</string>
+
+    <!-- Backgrounds -->
+    <string name="bg_solid">Solid Color</string>
+    <string name="bg_gradient">Gradient</string>
+    <string name="bg_photo">My Photos</string>
+    <string name="bg_unsplash">Unsplash</string>
+    <string name="bg_video">Live Video</string>
+    <string name="search_unsplash_hint">Search Unsplash (e.g. Nature, AMOLED, Cyberpunk)...</string>
+</resources>
