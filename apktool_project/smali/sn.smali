@@ -1,0 +1,174 @@
+.class public final synthetic Lsn;
+.super Ljava/lang/Object;
+.source "r8-map-id-1b621dd7b707c396c212f41be6d00ff590e9ac32010b4c074222f71c8fe5d15f"
+
+# interfaces
+.implements Lmf1;
+.implements Lkl1;
+
+
+# instance fields
+.field public final synthetic a:Lxn;
+
+
+# direct methods
+.method public constructor <init>(Lxn;)V
+    .locals 0
+
+    .line 1
+    invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+
+    .line 2
+    .line 3
+    .line 4
+    iput-object p1, p0, Lsn;->a:Lxn;
+
+    .line 5
+    .line 6
+    return-void
+.end method
+
+
+# virtual methods
+.method public final a()Lxk1;
+    .locals 7
+
+    .line 1
+    new-instance v0, Lu5;
+
+    .line 2
+    .line 3
+    const-string v5, "updateState(Lcoil/compose/AsyncImagePainter$State;)V"
+
+    .line 4
+    .line 5
+    const/4 v6, 0x4
+
+    .line 6
+    const/4 v1, 0x2
+
+    .line 7
+    iget-object v2, p0, Lsn;->a:Lxn;
+
+    .line 8
+    .line 9
+    const-class v3, Lxn;
+
+    .line 10
+    .line 11
+    const-string v4, "updateState"
+
+    .line 12
+    .line 13
+    invoke-direct/range {v0 .. v6}, Lu5;-><init>(ILjava/lang/Object;Ljava/lang/Class;Ljava/lang/String;Ljava/lang/String;I)V
+
+    .line 14
+    .line 15
+    .line 16
+    return-object v0
+.end method
+
+.method public final emit(Ljava/lang/Object;Luf0;)Ljava/lang/Object;
+    .locals 0
+
+    .line 1
+    check-cast p1, Lrn;
+
+    .line 2
+    .line 3
+    iget-object p0, p0, Lsn;->a:Lxn;
+
+    .line 4
+    .line 5
+    invoke-virtual {p0, p1}, Lxn;->k(Lrn;)V
+
+    .line 6
+    .line 7
+    .line 8
+    sget-object p0, Lo25;->a:Lo25;
+
+    .line 9
+    .line 10
+    return-object p0
+.end method
+
+.method public final equals(Ljava/lang/Object;)Z
+    .locals 1
+
+    .line 1
+    instance-of v0, p1, Lmf1;
+
+    .line 2
+    .line 3
+    if-eqz v0, :cond_0
+
+    .line 4
+    .line 5
+    instance-of v0, p1, Lkl1;
+
+    .line 6
+    .line 7
+    if-eqz v0, :cond_0
+
+    .line 8
+    .line 9
+    invoke-virtual {p0}, Lsn;->a()Lxk1;
+
+    .line 10
+    .line 11
+    .line 12
+    move-result-object p0
+
+    .line 13
+    check-cast p1, Lkl1;
+
+    .line 14
+    .line 15
+    invoke-interface {p1}, Lkl1;->a()Lxk1;
+
+    .line 16
+    .line 17
+    .line 18
+    move-result-object p1
+
+    .line 19
+    invoke-virtual {p0, p1}, Ljava/lang/Object;->equals(Ljava/lang/Object;)Z
+
+    .line 20
+    .line 21
+    .line 22
+    move-result p0
+
+    .line 23
+    return p0
+
+    .line 24
+    :cond_0
+    const/4 p0, 0x0
+
+    .line 25
+    return p0
+.end method
+
+.method public final hashCode()I
+    .locals 0
+
+    .line 1
+    invoke-virtual {p0}, Lsn;->a()Lxk1;
+
+    .line 2
+    .line 3
+    .line 4
+    move-result-object p0
+
+    .line 5
+    invoke-virtual {p0}, Ljava/lang/Object;->hashCode()I
+
+    .line 6
+    .line 7
+    .line 8
+    move-result p0
+
+    .line 9
+    return p0
+.end method

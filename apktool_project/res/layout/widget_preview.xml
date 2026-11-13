@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout android:gravity="center_vertical" android:orientation="horizontal" android:background="@drawable/widget_background" android:padding="12.0dip" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <TextView android:textSize="26.0sp" android:gravity="center" android:background="@drawable/widget_preview_tile" android:layout_width="52.0dip" android:layout_height="52.0dip" android:text="@string/widget_preview_emoji" />
+    <LinearLayout android:orientation="vertical" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0" android:layout_marginStart="12.0dip">
+        <TextView android:textSize="16.0sp" android:textStyle="bold" android:textColor="#ffffffff" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_title" android:maxLines="2" />
+        <TextView android:textSize="12.0sp" android:textColor="#a6ffffff" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2.0dip" android:text="@string/widget_preview_date" />
+    </LinearLayout>
+    <LinearLayout android:gravity="center_horizontal" android:orientation="vertical" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8.0dip">
+        <TextView android:textSize="32.0sp" android:textStyle="bold" android:textColor="#ff009688" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_days" />
+        <TextView android:textSize="12.0sp" android:textColor="#a6ffffff" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_days_label" />
+    </LinearLayout>
+</LinearLayout>

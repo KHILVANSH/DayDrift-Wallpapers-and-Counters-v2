@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="home_days_unit">
+        <item quantity="other">days</item>
+        <item quantity="one">day</item>
+    </plurals>
+    <plurals name="home_share_caption_days">
+        <item quantity="other">%1$s %2$s — %3$d days to go! ⏳</item>
+        <item quantity="one">%1$s %2$s — %3$d day to go! ⏳</item>
+    </plurals>
+    <plurals name="home_wallpaper_inactive_body">
+        <item quantity="other">Set Countdown Wallpaper as your live wallpaper to see %1$d countdowns on your home screen.</item>
+        <item quantity="one">Set Countdown Wallpaper as your live wallpaper to see %1$d countdown on your home screen.</item>
+    </plurals>
+    <plurals name="home_wallpaper_limit">
+        <item quantity="other">Only %1$d countdowns can be on the wallpaper at once. Hide one to show this.</item>
+        <item quantity="one">Only %1$d countdown can be on the wallpaper at once. Hide it to show another.</item>
+    </plurals>
+    <plurals name="notification_reminder_text">
+        <item quantity="other">"Only %1$d days left for '%2$s %3$s'!"</item>
+        <item quantity="one">"Only %1$d day left for '%2$s %3$s'!"</item>
+    </plurals>
+    <plurals name="widget_days_left">
+        <item quantity="other">days left</item>
+        <item quantity="one">day left</item>
+    </plurals>
+    <plurals name="widget_hours_left">
+        <item quantity="other">hours left</item>
+        <item quantity="one">hour left</item>
+    </plurals>
+</resources>
