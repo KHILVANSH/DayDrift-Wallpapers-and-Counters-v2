@@ -33,13 +33,13 @@ public class DayDriftWallpaperService extends WallpaperService {
         private int surfaceHeight = 1920;
         private String currentPlayingVideoPath = null;
 
-        // 1-second tick for static canvas wallpapers
+        // Smooth 30 FPS tick for static canvas wallpapers with fluid digit transitions
         private final Runnable canvasDrawRunnable = new Runnable() {
             @Override
             public void run() {
                 drawCanvasFrame();
                 if (visible && !isVideoMode()) {
-                    handler.postDelayed(this, 1000);
+                    handler.postDelayed(this, 33);
                 }
             }
         };
@@ -67,6 +67,7 @@ public class DayDriftWallpaperService extends WallpaperService {
         @Override
         public void onCreate(SurfaceHolder surfaceHolder) {
             super.onCreate(surfaceHolder);
+            surfaceHolder.setFormat(android.graphics.PixelFormat.RGBA_8888);
             canvasRenderer = new DayDriftWallpaperRenderer(DayDriftWallpaperService.this);
             videoRenderer = new VideoWallpaperRenderer(DayDriftWallpaperService.this);
             counterRepo = CounterRepository.getInstance(DayDriftWallpaperService.this);

@@ -103,16 +103,24 @@ public class MainActivity extends AppCompatActivity {
     private void initPickers() {
         photoPickerLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
             if (uri != null) {
+                final InputStream in;
+                try {
+                    in = getContentResolver().openInputStream(uri);
+                } catch (Exception e) {
+                    Toast.makeText(this, "Could not open photo: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 Toast.makeText(this, "Importing photo...", Toast.LENGTH_SHORT).show();
                 ioExecutor.execute(() -> {
-                    String path = copyUriToInternalStorage(uri, "photo_" + System.currentTimeMillis() + ".jpg");
+                    cleanOldMediaFiles("photo_");
+                    String path = copyStreamToInternalStorage(in, "photo_" + System.currentTimeMillis() + ".jpg");
                     if (path != null) {
                         runOnUiThread(() -> {
                             workingWallpaperConfig.backgroundType = WallpaperConfig.TYPE_IMAGE;
                             workingWallpaperConfig.imageUri = path;
                             markStudioChanged();
                             updateStudioPreview();
-                            Toast.makeText(this, "Photo selected! Click 'Save Changes' to apply.", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(this, "Photo applied to draft! Click 'Save Changes' to confirm.", Toast.LENGTH_SHORT).show();
                         });
                     }
                 });
@@ -121,22 +129,30 @@ public class MainActivity extends AppCompatActivity {
 
         videoPickerLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
             if (uri != null) {
+                final InputStream in;
+                try {
+                    in = getContentResolver().openInputStream(uri);
+                } catch (Exception e) {
+                    Toast.makeText(this, "Could not open video: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
                 Toast.makeText(this, "Importing video... Please wait.", Toast.LENGTH_SHORT).show();
                 ioExecutor.execute(() -> {
-                    // Clean up any older cached videos to save storage
                     cleanOldMediaFiles("video_");
-                    String path = copyUriToInternalStorage(uri, "video_" + System.currentTimeMillis() + ".mp4");
+                    String path = copyStreamToInternalStorage(in, "video_" + System.currentTimeMillis() + ".mp4");
                     if (path != null) {
+                        String details = extractVideoDetails(path);
                         runOnUiThread(() -> {
                             workingWallpaperConfig.backgroundType = WallpaperConfig.TYPE_VIDEO;
                             workingWallpaperConfig.videoUri = path;
-                            tvVideoStatus.setText("Selected Video: " + new File(path).getName());
+                            tvVideoStatus.setText(details);
                             markStudioChanged();
                             updateStudioPreview();
-                            Toast.makeText(this, "Video loaded! Click 'Save Changes' to apply as live wallpaper.", Toast.LENGTH_LONG).show();
+                            Toast.makeText(this, "Video ready! Click 'Save Changes' to apply as live wallpaper.", Toast.LENGTH_LONG).show();
                         });
                     } else {
-                        runOnUiThread(() -> Toast.makeText(this, "Failed to read selected video file.", Toast.LENGTH_SHORT).show());
+                        runOnUiThread(() -> Toast.makeText(this, "Failed to copy video to internal storage.", Toast.LENGTH_SHORT).show());
                     }
                 });
             }
@@ -157,24 +173,46 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception ignored) {}
     }
 
-    private String copyUriToInternalStorage(Uri uri, String destFilename) {
+    private String copyStreamToInternalStorage(InputStream in, String destFilename) {
+        if (in == null) return null;
         try {
             File dir = new File(getFilesDir(), "user_media");
             if (!dir.exists()) dir.mkdirs();
             File dest = new File(dir, destFilename);
-            try (InputStream in = getContentResolver().openInputStream(uri);
+            try (InputStream input = in;
                  FileOutputStream out = new FileOutputStream(dest)) {
                 byte[] buffer = new byte[65536];
                 int len;
-                while ((len = in.read(buffer)) != -1) {
+                while ((len = input.read(buffer)) != -1) {
                     out.write(buffer, 0, len);
                 }
                 out.flush();
-                return dest.getAbsolutePath();
+                if (dest.exists() && dest.length() > 0) {
+                    return dest.getAbsolutePath();
+                }
+                return null;
             }
         } catch (Exception e) {
             e.printStackTrace();
             return null;
+        }
+    }
+
+    private String extractVideoDetails(String path) {
+        try {
+            android.media.MediaMetadataRetriever mmr = new android.media.MediaMetadataRetriever();
+            mmr.setDataSource(path);
+            String durStr = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+            String wStr = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
+            String hStr = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
+            long durMs = durStr != null ? Long.parseLong(durStr) : 0;
+            long sec = durMs / 1000;
+            File f = new File(path);
+            float mb = f.length() / (1024f * 1024f);
+            return String.format(java.util.Locale.getDefault(), "Video: %s×%s • %ds • %.1f MB (Auto-looping)",
+                    wStr != null ? wStr : "HD", hStr != null ? hStr : "", sec, mb);
+        } catch (Exception e) {
+            return "Video: Ready to play (Auto-looping)";
         }
     }
 
@@ -260,6 +298,12 @@ public class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.btnEnlargePreview).setOnClickListener(v -> {
             Intent intent = new Intent(this, EnlargedPreviewActivity.class);
+            if (workingWallpaperConfig != null) {
+                intent.putExtra(EnlargedPreviewActivity.EXTRA_CONFIG_JSON, workingWallpaperConfig.toJsonObject().toString());
+            }
+            if (workingCounterModel != null) {
+                intent.putExtra(EnlargedPreviewActivity.EXTRA_COUNTER_JSON, workingCounterModel.toJsonObject().toString());
+            }
             startActivity(intent);
             overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
         });
@@ -361,6 +405,50 @@ public class MainActivity extends AppCompatActivity {
             });
         });
 
+        // Gradient Preset Pills
+        View.OnClickListener gradientPresetClick = v -> {
+            int id = v.getId();
+            if (workingWallpaperConfig.gradientConfig == null) workingWallpaperConfig.gradientConfig = new GradientConfig();
+            workingWallpaperConfig.backgroundType = WallpaperConfig.TYPE_GRADIENT;
+            updateBackgroundPanels(WallpaperConfig.TYPE_GRADIENT);
+
+            if (id == R.id.presetCyberpunk) {
+                workingWallpaperConfig.gradientConfig.startColor = Color.parseColor("#00E5FF");
+                workingWallpaperConfig.gradientConfig.endColor = Color.parseColor("#7C3AED");
+                workingWallpaperConfig.gradientConfig.angle = 135;
+            } else if (id == R.id.presetSunset) {
+                workingWallpaperConfig.gradientConfig.startColor = Color.parseColor("#F59E0B");
+                workingWallpaperConfig.gradientConfig.endColor = Color.parseColor("#EC4899");
+                workingWallpaperConfig.gradientConfig.angle = 45;
+            } else if (id == R.id.presetEmerald) {
+                workingWallpaperConfig.gradientConfig.startColor = Color.parseColor("#10B981");
+                workingWallpaperConfig.gradientConfig.endColor = Color.parseColor("#064E3B");
+                workingWallpaperConfig.gradientConfig.angle = 180;
+            } else if (id == R.id.presetObsidian) {
+                workingWallpaperConfig.gradientConfig.startColor = Color.parseColor("#0B0E14");
+                workingWallpaperConfig.gradientConfig.endColor = Color.parseColor("#1E293B");
+                workingWallpaperConfig.gradientConfig.angle = 135;
+            } else if (id == R.id.presetAurora) {
+                workingWallpaperConfig.gradientConfig.startColor = Color.parseColor("#6366F1");
+                workingWallpaperConfig.gradientConfig.endColor = Color.parseColor("#A855F7");
+                workingWallpaperConfig.gradientConfig.angle = 90;
+            }
+
+            findViewById(R.id.btnBgStartColor).setBackgroundColor(workingWallpaperConfig.gradientConfig.startColor);
+            findViewById(R.id.btnBgEndColor).setBackgroundColor(workingWallpaperConfig.gradientConfig.endColor);
+            sliderBgAngle.setValue(workingWallpaperConfig.gradientConfig.angle);
+            tvBgAngle.setText("Gradient Angle: " + workingWallpaperConfig.gradientConfig.angle + "°");
+
+            markStudioChanged();
+            updateStudioPreview();
+        };
+
+        findViewById(R.id.presetCyberpunk).setOnClickListener(gradientPresetClick);
+        findViewById(R.id.presetSunset).setOnClickListener(gradientPresetClick);
+        findViewById(R.id.presetEmerald).setOnClickListener(gradientPresetClick);
+        findViewById(R.id.presetObsidian).setOnClickListener(gradientPresetClick);
+        findViewById(R.id.presetAurora).setOnClickListener(gradientPresetClick);
+
         // Unsplash search
         TextInputEditText inputQuery = findViewById(R.id.inputUnsplashQuery);
         findViewById(R.id.btnSearchUnsplash).setOnClickListener(v -> {
@@ -390,9 +478,24 @@ public class MainActivity extends AppCompatActivity {
         });
         rvUnsplash.setAdapter(unsplashAdapter);
 
-        // Video Pick Button
+        // Video Pick Button & Play/Pause
         findViewById(R.id.btnPickVideo).setOnClickListener(v -> {
             videoPickerLauncher.launch("video/*");
+        });
+
+        MaterialButton btnPlayPause = findViewById(R.id.btnPlayPauseVideo);
+        btnPlayPause.setOnClickListener(v -> {
+            if (studioMediaPlayer != null) {
+                try {
+                    if (studioMediaPlayer.isPlaying()) {
+                        studioMediaPlayer.pause();
+                        btnPlayPause.setText("▶ Play");
+                    } else {
+                        studioMediaPlayer.start();
+                        btnPlayPause.setText("⏸ Pause");
+                    }
+                } catch (Exception ignored) {}
+            }
         });
     }
 
@@ -425,12 +528,20 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startStudioVideoPlayback() {
-        if (workingWallpaperConfig.videoUri == null || studioVideoSurface == null || !studioVideoSurface.isValid()) {
+        if (workingWallpaperConfig.videoUri == null) {
             return;
         }
 
         File f = new File(workingWallpaperConfig.videoUri);
         if (!f.exists()) return;
+
+        if (studioVideoSurface == null && studioVideoTextureView.isAvailable()) {
+            studioVideoSurface = new Surface(studioVideoTextureView.getSurfaceTexture());
+        }
+
+        if (studioVideoSurface == null || !studioVideoSurface.isValid()) {
+            return;
+        }
 
         stopStudioVideoPlayback();
 
@@ -440,11 +551,35 @@ public class MainActivity extends AppCompatActivity {
             studioMediaPlayer.setDataSource(f.getAbsolutePath());
             studioMediaPlayer.setLooping(true);
             studioMediaPlayer.setVolume(0f, 0f);
+            studioMediaPlayer.setOnVideoSizeChangedListener((mp, vw, vh) -> adjustVideoTextureAspect(vw, vh));
             studioMediaPlayer.setOnPreparedListener(MediaPlayer::start);
             studioMediaPlayer.prepareAsync();
         } catch (Exception e) {
             stopStudioVideoPlayback();
         }
+    }
+
+    private void adjustVideoTextureAspect(int videoWidth, int videoHeight) {
+        if (videoWidth <= 0 || videoHeight <= 0 || studioVideoTextureView == null) return;
+        int viewWidth = studioVideoTextureView.getWidth();
+        int viewHeight = studioVideoTextureView.getHeight();
+        if (viewWidth <= 0 || viewHeight <= 0) return;
+
+        float videoAspect = (float) videoWidth / (float) videoHeight;
+        float viewAspect = (float) viewWidth / (float) viewHeight;
+
+        android.graphics.Matrix matrix = new android.graphics.Matrix();
+        float scaleX = 1.0f;
+        float scaleY = 1.0f;
+
+        if (videoAspect > viewAspect) {
+            scaleX = videoAspect / viewAspect;
+        } else {
+            scaleY = viewAspect / viewAspect;
+        }
+
+        matrix.setScale(scaleX, scaleY, viewWidth / 2.0f, viewHeight / 2.0f);
+        studioVideoTextureView.setTransform(matrix);
     }
 
     private void stopStudioVideoPlayback() {
@@ -510,7 +645,7 @@ public class MainActivity extends AppCompatActivity {
             menuBg.setText("Video Live Wallpaper (.mp4)", false);
             updateBackgroundPanels(WallpaperConfig.TYPE_VIDEO);
             if (workingWallpaperConfig.videoUri != null) {
-                tvVideoStatus.setText("Selected Video: " + new File(workingWallpaperConfig.videoUri).getName());
+                tvVideoStatus.setText(extractVideoDetails(workingWallpaperConfig.videoUri));
             } else {
                 tvVideoStatus.setText("Choose any video from gallery to loop as live wallpaper.");
             }

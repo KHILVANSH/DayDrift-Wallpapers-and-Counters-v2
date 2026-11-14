@@ -160,6 +160,7 @@ public class VideoWallpaperRenderer {
             EGL14.EGL_BLUE_SIZE, 8,
             EGL14.EGL_ALPHA_SIZE, 8,
             EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
+            EGL14.EGL_SURFACE_TYPE, EGL14.EGL_WINDOW_BIT,
             EGL14.EGL_NONE
         };
 
@@ -237,6 +238,20 @@ public class VideoWallpaperRenderer {
             mediaPlayer.setDataSource(f.getAbsolutePath());
             mediaPlayer.setLooping(true);
             mediaPlayer.setVolume(0f, 0f);
+            mediaPlayer.setOnVideoSizeChangedListener((mp, vw, vh) -> {
+                if (vw > 0 && vh > 0 && surfaceWidth > 0 && surfaceHeight > 0) {
+                    float videoAspect = (float) vw / (float) vh;
+                    float surfaceAspect = (float) surfaceWidth / (float) surfaceHeight;
+                    Matrix.setIdentityM(mvpMatrix, 0);
+                    if (videoAspect > surfaceAspect) {
+                        float scaleX = videoAspect / surfaceAspect;
+                        Matrix.scaleM(mvpMatrix, 0, scaleX, 1.0f, 1.0f);
+                    } else {
+                        float scaleY = surfaceAspect / videoAspect;
+                        Matrix.scaleM(mvpMatrix, 0, 1.0f, scaleY, 1.0f);
+                    }
+                }
+            });
             mediaPlayer.setOnPreparedListener(MediaPlayer::start);
             mediaPlayer.setOnErrorListener((mp, what, extra) -> {
                 releaseMediaPlayer();

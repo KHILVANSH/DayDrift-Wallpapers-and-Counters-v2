@@ -2,6 +2,8 @@ package com.daydrift.app.view;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -28,6 +30,21 @@ public class LiveWallpaperPreviewView extends View {
 
     // Rotation tracking
     private double lastAngle = 0;
+
+    // Live Animation & Timer Tick Loop
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private boolean isTickingActive = false;
+    private final Runnable tickRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (isTickingActive && isShown()) {
+                invalidate();
+                mainHandler.postDelayed(this, 33); // ~30 FPS for smooth digit animation
+            } else {
+                isTickingActive = false;
+            }
+        }
+    };
 
     public LiveWallpaperPreviewView(Context context) {
         super(context);
@@ -63,6 +80,7 @@ public class LiveWallpaperPreviewView extends View {
         this.wallpaperConfig = wallpaperConfig;
         this.counterModel = counterModel;
         invalidate();
+        checkTickingState();
     }
 
     public void setInteractive(boolean interactive) {
@@ -71,6 +89,51 @@ public class LiveWallpaperPreviewView extends View {
 
     public void setOnTransformChangeListener(OnTransformChangeListener listener) {
         this.transformListener = listener;
+    }
+
+    public void startTicking() {
+        if (!isTickingActive) {
+            isTickingActive = true;
+            mainHandler.removeCallbacks(tickRunnable);
+            mainHandler.post(tickRunnable);
+        }
+    }
+
+    public void stopTicking() {
+        isTickingActive = false;
+        mainHandler.removeCallbacks(tickRunnable);
+    }
+
+    private void checkTickingState() {
+        if (isShown() && getWindowVisibility() == VISIBLE) {
+            startTicking();
+        } else {
+            stopTicking();
+        }
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        checkTickingState();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        stopTicking();
+        super.onDetachedFromWindow();
+    }
+
+    @Override
+    protected void onVisibilityChanged(View changedView, int visibility) {
+        super.onVisibilityChanged(changedView, visibility);
+        checkTickingState();
+    }
+
+    @Override
+    protected void onWindowVisibilityChanged(int visibility) {
+        super.onWindowVisibilityChanged(visibility);
+        checkTickingState();
     }
 
     @Override

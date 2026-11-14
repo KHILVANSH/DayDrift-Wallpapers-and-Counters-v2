@@ -5,6 +5,12 @@
     android:layout_height="match_parent"
     android:background="@color/bg_dark">
 
+    <TextureView
+        android:id="@+id/enlargedVideoTextureView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
     <com.daydrift.app.view.LiveWallpaperPreviewView
         android:id="@+id/enlargedPreviewView"
         android:layout_width="match_parent"
