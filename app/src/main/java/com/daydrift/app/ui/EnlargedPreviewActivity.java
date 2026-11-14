@@ -41,6 +41,21 @@ public class EnlargedPreviewActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_enlarged_preview);
 
+        View topBar = findViewById(R.id.enlargedTopBar);
+        View bottomDock = findViewById(R.id.enlargedBottomDock);
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content), (v, windowInsets) -> {
+            androidx.core.graphics.Insets insets = windowInsets.getInsets(
+                androidx.core.view.WindowInsetsCompat.Type.systemBars()
+            );
+            if (topBar != null) {
+                topBar.setPadding(topBar.getPaddingLeft(), insets.top + (int)(8 * getResources().getDisplayMetrics().density), topBar.getPaddingRight(), (int)(12 * getResources().getDisplayMetrics().density));
+            }
+            if (bottomDock != null) {
+                bottomDock.setPadding(bottomDock.getPaddingLeft(), bottomDock.getPaddingTop(), bottomDock.getPaddingRight(), insets.bottom + (int)(12 * getResources().getDisplayMetrics().density));
+            }
+            return androidx.core.view.WindowInsetsCompat.CONSUMED;
+        });
+
         counterRepo = CounterRepository.getInstance(this);
         wallpaperRepo = WallpaperRepository.getInstance(this);
 

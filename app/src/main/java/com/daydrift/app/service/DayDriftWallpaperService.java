@@ -1,6 +1,7 @@
 package com.daydrift.app.service;
 
 import android.graphics.Canvas;
+import android.media.MediaPlayer;
 import android.os.Handler;
 import android.os.Looper;
 import android.service.wallpaper.WallpaperService;
@@ -33,29 +34,65 @@ public class DayDriftWallpaperService extends WallpaperService {
         private int surfaceHeight = 1920;
         private String currentPlayingVideoPath = null;
 
-        // Smooth 30 FPS tick for static canvas wallpapers with fluid digit transitions
+        // Smooth 60 FPS tick for static canvas wallpapers with fluid digit transitions
         private final Runnable canvasDrawRunnable = new Runnable() {
             @Override
             public void run() {
                 drawCanvasFrame();
                 if (visible && !isVideoMode()) {
-                    handler.postDelayed(this, 33);
+                    handler.postDelayed(this, 16);
                 }
             }
         };
 
-        // Smooth 30 FPS tick for video live wallpaper
+        // Smooth 60 FPS tick for video live wallpaper
         private final Runnable videoDrawRunnable = new Runnable() {
             @Override
             public void run() {
-                if (isVideoMode()) {
+                if (isVideoMode() && directMediaPlayer == null) {
                     drawVideoFrame();
                     if (visible) {
-                        handler.postDelayed(this, 33);
+                        handler.postDelayed(this, 16);
                     }
                 }
             }
         };
+
+        private MediaPlayer directMediaPlayer;
+
+        private void startDirectVideoFallback(android.view.Surface surface, String videoPath) {
+            releaseDirectMediaPlayer();
+            try {
+                directMediaPlayer = new MediaPlayer();
+                directMediaPlayer.setSurface(surface);
+                directMediaPlayer.setDataSource(videoPath);
+                directMediaPlayer.setLooping(true);
+                directMediaPlayer.setVolume(0f, 0f);
+                directMediaPlayer.setOnPreparedListener(MediaPlayer::start);
+                directMediaPlayer.prepareAsync();
+                android.util.Log.i("DayDrift", "Direct video fallback started successfully");
+            } catch (Exception e) {
+                android.util.Log.e("DayDrift", "Direct video fallback failed", e);
+            }
+        }
+
+        private void releaseDirectMediaPlayer() {
+            if (directMediaPlayer != null) {
+                try {
+                    if (directMediaPlayer.isPlaying()) directMediaPlayer.stop();
+                    directMediaPlayer.reset();
+                    directMediaPlayer.release();
+                } catch (Exception ignored) {}
+                directMediaPlayer = null;
+            }
+        }
+
+        private void releaseAllVideoPlayers() {
+            if (videoRenderer != null) {
+                videoRenderer.releaseEGL();
+            }
+            releaseDirectMediaPlayer();
+        }
 
         private final Runnable dataChangeListener = new Runnable() {
             @Override
@@ -84,9 +121,8 @@ public class DayDriftWallpaperService extends WallpaperService {
             handler.removeCallbacks(videoDrawRunnable);
             counterRepo.removeChangeListener(dataChangeListener);
             wallpaperRepo.removeChangeListener(dataChangeListener);
-            if (videoRenderer != null) {
-                videoRenderer.releaseEGL();
-            }
+            releaseAllVideoPlayers();
+            currentPlayingVideoPath = null;
             super.onDestroy();
         }
 
@@ -98,6 +134,9 @@ public class DayDriftWallpaperService extends WallpaperService {
             } else {
                 handler.removeCallbacks(canvasDrawRunnable);
                 handler.removeCallbacks(videoDrawRunnable);
+                if (directMediaPlayer != null) {
+                    try { directMediaPlayer.pause(); } catch (Exception ignored) {}
+                }
                 if (videoRenderer != null) {
                     videoRenderer.setPaused(true);
                 }
@@ -123,9 +162,7 @@ public class DayDriftWallpaperService extends WallpaperService {
             visible = false;
             handler.removeCallbacks(canvasDrawRunnable);
             handler.removeCallbacks(videoDrawRunnable);
-            if (videoRenderer != null) {
-                videoRenderer.releaseEGL();
-            }
+            releaseAllVideoPlayers();
             currentPlayingVideoPath = null;
             super.onSurfaceDestroyed(holder);
         }
@@ -146,25 +183,39 @@ public class DayDriftWallpaperService extends WallpaperService {
                 String videoPath = config.videoUri;
 
                 if (!videoPath.equals(currentPlayingVideoPath)) {
-                    videoRenderer.releaseEGL();
-                    boolean initialized = videoRenderer.initEGL(holder.getSurface(), surfaceWidth, surfaceHeight);
+                    releaseAllVideoPlayers();
+                    boolean initialized = false;
+                    try {
+                        initialized = videoRenderer.initEGL(holder.getSurface(), surfaceWidth, surfaceHeight);
+                    } catch (Exception e) {
+                        initialized = false;
+                    }
+
                     if (initialized) {
                         videoRenderer.startVideo(videoPath);
                         currentPlayingVideoPath = videoPath;
+                    } else {
+                        startDirectVideoFallback(holder.getSurface(), videoPath);
+                        currentPlayingVideoPath = videoPath;
                     }
                 } else {
-                    videoRenderer.setPaused(!visible);
+                    if (directMediaPlayer != null) {
+                        try {
+                            if (visible && !directMediaPlayer.isPlaying()) directMediaPlayer.start();
+                            else if (!visible && directMediaPlayer.isPlaying()) directMediaPlayer.pause();
+                        } catch (Exception ignored) {}
+                    } else if (videoRenderer != null) {
+                        videoRenderer.setPaused(!visible);
+                    }
                 }
 
-                if (visible) {
+                if (visible && directMediaPlayer == null) {
                     handler.removeCallbacks(videoDrawRunnable);
                     handler.post(videoDrawRunnable);
                 }
             } else {
                 handler.removeCallbacks(videoDrawRunnable);
-                if (videoRenderer != null) {
-                    videoRenderer.releaseEGL();
-                }
+                releaseAllVideoPlayers();
                 currentPlayingVideoPath = null;
 
                 if (visible) {

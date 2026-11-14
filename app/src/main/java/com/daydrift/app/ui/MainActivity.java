@@ -83,6 +83,18 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Proper Edge-to-Edge System Window Insets handling for status bar & gesture navigation
+        View root = findViewById(R.id.rootMainLayout);
+        if (root != null) {
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (v, windowInsets) -> {
+                androidx.core.graphics.Insets insets = windowInsets.getInsets(
+                    androidx.core.view.WindowInsetsCompat.Type.systemBars()
+                );
+                v.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+                return androidx.core.view.WindowInsetsCompat.CONSUMED;
+            });
+        }
+
         counterRepo = CounterRepository.getInstance(this);
         wallpaperRepo = WallpaperRepository.getInstance(this);
         unsplashService = new UnsplashService();
@@ -228,6 +240,9 @@ public class MainActivity extends AppCompatActivity {
 
         // Set Live Wallpaper Button
         findViewById(R.id.btnApplyWallpaper).setOnClickListener(v -> {
+            if (hasUnsavedChanges) {
+                saveStudioChanges();
+            }
             Intent intent = new Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER);
             intent.putExtra(WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
                 new ComponentName(this, DayDriftWallpaperService.class));
@@ -355,6 +370,9 @@ public class MainActivity extends AppCompatActivity {
                     updateBackgroundPanels(WallpaperConfig.TYPE_VIDEO);
                     markStudioChanged();
                     updateStudioPreview();
+                    if (workingWallpaperConfig.videoUri == null || !new File(workingWallpaperConfig.videoUri).exists()) {
+                        videoPickerLauncher.launch("video/*");
+                    }
                     break;
             }
         });

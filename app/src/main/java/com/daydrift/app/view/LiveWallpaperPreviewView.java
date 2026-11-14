@@ -31,15 +31,14 @@ public class LiveWallpaperPreviewView extends View {
     // Rotation tracking
     private double lastAngle = 0;
 
-    // Live Animation & Timer Tick Loop
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    // Hardware VSYNC-synced live rendering loop (Runs at native 144Hz / 120Hz / 60Hz display refresh)
     private boolean isTickingActive = false;
-    private final Runnable tickRunnable = new Runnable() {
+    private final Runnable frameCallback = new Runnable() {
         @Override
         public void run() {
-            if (isTickingActive && isShown()) {
+            if (isTickingActive && isShown() && getWindowVisibility() == VISIBLE) {
                 invalidate();
-                mainHandler.postDelayed(this, 33); // ~30 FPS for smooth digit animation
+                postOnAnimation(this);
             } else {
                 isTickingActive = false;
             }
@@ -94,14 +93,14 @@ public class LiveWallpaperPreviewView extends View {
     public void startTicking() {
         if (!isTickingActive) {
             isTickingActive = true;
-            mainHandler.removeCallbacks(tickRunnable);
-            mainHandler.post(tickRunnable);
+            removeCallbacks(frameCallback);
+            postOnAnimation(frameCallback);
         }
     }
 
     public void stopTicking() {
         isTickingActive = false;
-        mainHandler.removeCallbacks(tickRunnable);
+        removeCallbacks(frameCallback);
     }
 
     private void checkTickingState() {
