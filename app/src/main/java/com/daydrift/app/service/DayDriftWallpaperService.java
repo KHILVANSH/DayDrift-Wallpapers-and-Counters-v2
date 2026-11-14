@@ -60,9 +60,13 @@ public class DayDriftWallpaperService extends WallpaperService {
         };
 
         private MediaPlayer directMediaPlayer;
+        private boolean isDirectPrepared = false;
+        private boolean isDirectPausedRequested = false;
 
         private void startDirectVideoFallback(android.view.Surface surface, String videoPath) {
             releaseDirectMediaPlayer();
+            isDirectPrepared = false;
+            isDirectPausedRequested = false;
             try {
                 directMediaPlayer = new MediaPlayer();
                 directMediaPlayer.setSurface(surface);
@@ -72,10 +76,17 @@ public class DayDriftWallpaperService extends WallpaperService {
                 }
                 directMediaPlayer.setLooping(true);
                 directMediaPlayer.setVolume(0f, 0f);
-                directMediaPlayer.setOnPreparedListener(MediaPlayer::start);
+                directMediaPlayer.setOnPreparedListener(mp -> {
+                    isDirectPrepared = true;
+                    if (!isDirectPausedRequested) {
+                        try { mp.start(); } catch (Exception ignored) {}
+                    }
+                });
                 directMediaPlayer.setOnErrorListener((mp, what, extra) -> {
                     android.util.Log.e("DayDrift", "directMediaPlayer error: " + what + ", " + extra);
-                    releaseDirectMediaPlayer();
+                    if (what != -38) {
+                        releaseDirectMediaPlayer();
+                    }
                     return true;
                 });
                 directMediaPlayer.prepareAsync();
@@ -86,6 +97,7 @@ public class DayDriftWallpaperService extends WallpaperService {
         }
 
         private void releaseDirectMediaPlayer() {
+            isDirectPrepared = false;
             if (directMediaPlayer != null) {
                 try {
                     if (directMediaPlayer.isPlaying()) directMediaPlayer.stop();
@@ -144,7 +156,10 @@ public class DayDriftWallpaperService extends WallpaperService {
                 handler.removeCallbacks(canvasDrawRunnable);
                 handler.removeCallbacks(videoDrawRunnable);
                 if (directMediaPlayer != null) {
-                    try { directMediaPlayer.pause(); } catch (Exception ignored) {}
+                    isDirectPausedRequested = true;
+                    if (isDirectPrepared) {
+                        try { directMediaPlayer.pause(); } catch (Exception ignored) {}
+                    }
                 }
                 if (videoRenderer != null) {
                     videoRenderer.setPaused(true);
@@ -212,10 +227,13 @@ public class DayDriftWallpaperService extends WallpaperService {
                     }
                 } else {
                     if (directMediaPlayer != null) {
-                        try {
-                            if (visible && !directMediaPlayer.isPlaying()) directMediaPlayer.start();
-                            else if (!visible && directMediaPlayer.isPlaying()) directMediaPlayer.pause();
-                        } catch (Exception ignored) {}
+                        isDirectPausedRequested = !visible;
+                        if (isDirectPrepared) {
+                            try {
+                                if (visible && !directMediaPlayer.isPlaying()) directMediaPlayer.start();
+                                else if (!visible && directMediaPlayer.isPlaying()) directMediaPlayer.pause();
+                            } catch (Exception ignored) {}
+                        }
                     } else if (videoRenderer != null) {
                         videoRenderer.setPaused(!visible);
                     }

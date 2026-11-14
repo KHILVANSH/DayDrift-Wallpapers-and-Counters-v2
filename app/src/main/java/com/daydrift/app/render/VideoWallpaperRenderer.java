@@ -39,6 +39,8 @@ public class VideoWallpaperRenderer {
     private SurfaceTexture videoSurfaceTexture;
     private Surface videoSurface;
     private MediaPlayer mediaPlayer;
+    private boolean isPrepared = false;
+    private boolean isPausedRequested = false;
 
     private int overlayTextureId = 0;
     private Bitmap overlayBitmap;
@@ -261,6 +263,8 @@ public class VideoWallpaperRenderer {
         if (!f.exists()) return;
 
         releaseMediaPlayer();
+        isPrepared = false;
+        isPausedRequested = false;
 
         try {
             mediaPlayer = new MediaPlayer();
@@ -287,7 +291,7 @@ public class VideoWallpaperRenderer {
                 }
             });
             mediaPlayer.setOnPreparedListener(mp -> {
-                mp.start();
+                isPrepared = true;
                 int vw = mp.getVideoWidth();
                 int vh = mp.getVideoHeight();
                 if (vw > 0 && vh > 0 && surfaceWidth > 0 && surfaceHeight > 0) {
@@ -302,10 +306,17 @@ public class VideoWallpaperRenderer {
                         Matrix.scaleM(mvpMatrix, 0, 1.0f, scaleY, 1.0f);
                     }
                 }
+                if (!isPausedRequested) {
+                    try {
+                        mp.start();
+                    } catch (Exception ignored) {}
+                }
             });
             mediaPlayer.setOnErrorListener((mp, what, extra) -> {
                 android.util.Log.e("DayDrift", "VideoWallpaperRenderer MediaPlayer error: " + what + ", " + extra);
-                releaseMediaPlayer();
+                if (what != -38) {
+                    releaseMediaPlayer();
+                }
                 return true;
             });
             mediaPlayer.prepareAsync();
@@ -401,7 +412,8 @@ public class VideoWallpaperRenderer {
     }
 
     public void setPaused(boolean paused) {
-        if (mediaPlayer != null) {
+        this.isPausedRequested = paused;
+        if (mediaPlayer != null && isPrepared) {
             try {
                 if (paused && mediaPlayer.isPlaying()) {
                     mediaPlayer.pause();
@@ -413,6 +425,7 @@ public class VideoWallpaperRenderer {
     }
 
     public void releaseMediaPlayer() {
+        isPrepared = false;
         if (mediaPlayer != null) {
             try {
                 if (mediaPlayer.isPlaying()) mediaPlayer.stop();
