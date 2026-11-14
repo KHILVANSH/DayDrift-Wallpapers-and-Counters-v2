@@ -90,3 +90,4 @@ public class UnsplashAdapter extends RecyclerView.Adapter<UnsplashAdapter.ViewHo
         }
     }
 }
+

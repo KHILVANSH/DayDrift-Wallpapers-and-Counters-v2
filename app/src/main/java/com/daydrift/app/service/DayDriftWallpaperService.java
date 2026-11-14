@@ -1,8 +1,6 @@
 package com.daydrift.app.service;
 
 import android.graphics.Canvas;
-import android.media.MediaPlayer;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
 import android.service.wallpaper.WallpaperService;
@@ -11,6 +9,7 @@ import com.daydrift.app.data.CounterRepository;
 import com.daydrift.app.data.WallpaperRepository;
 import com.daydrift.app.model.CounterModel;
 import com.daydrift.app.model.WallpaperConfig;
+import com.daydrift.app.render.VideoWallpaperRenderer;
 import com.daydrift.app.view.DayDriftWallpaperRenderer;
 
 import java.io.File;
@@ -24,20 +23,36 @@ public class DayDriftWallpaperService extends WallpaperService {
 
     private class DayDriftEngine extends Engine {
         private final Handler handler = new Handler(Looper.getMainLooper());
-        private DayDriftWallpaperRenderer renderer;
+        private DayDriftWallpaperRenderer canvasRenderer;
+        private VideoWallpaperRenderer videoRenderer;
         private CounterRepository counterRepo;
         private WallpaperRepository wallpaperRepo;
 
         private boolean visible = false;
-        private MediaPlayer mediaPlayer = null;
-        private String currentPlayingVideo = null;
+        private int surfaceWidth = 1080;
+        private int surfaceHeight = 1920;
+        private String currentPlayingVideoPath = null;
 
-        private final Runnable drawRunnable = new Runnable() {
+        // 1-second tick for static canvas wallpapers
+        private final Runnable canvasDrawRunnable = new Runnable() {
             @Override
             public void run() {
-                drawFrame();
-                if (visible) {
+                drawCanvasFrame();
+                if (visible && !isVideoMode()) {
                     handler.postDelayed(this, 1000);
+                }
+            }
+        };
+
+        // Smooth 30 FPS tick for video live wallpaper
+        private final Runnable videoDrawRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (isVideoMode()) {
+                    drawVideoFrame();
+                    if (visible) {
+                        handler.postDelayed(this, 33);
+                    }
                 }
             }
         };
@@ -45,15 +60,15 @@ public class DayDriftWallpaperService extends WallpaperService {
         private final Runnable dataChangeListener = new Runnable() {
             @Override
             public void run() {
-                checkVideoState();
-                drawFrame();
+                updateEngineState();
             }
         };
 
         @Override
         public void onCreate(SurfaceHolder surfaceHolder) {
             super.onCreate(surfaceHolder);
-            renderer = new DayDriftWallpaperRenderer(DayDriftWallpaperService.this);
+            canvasRenderer = new DayDriftWallpaperRenderer(DayDriftWallpaperService.this);
+            videoRenderer = new VideoWallpaperRenderer(DayDriftWallpaperService.this);
             counterRepo = CounterRepository.getInstance(DayDriftWallpaperService.this);
             wallpaperRepo = WallpaperRepository.getInstance(DayDriftWallpaperService.this);
 
@@ -64,10 +79,13 @@ public class DayDriftWallpaperService extends WallpaperService {
         @Override
         public void onDestroy() {
             visible = false;
-            handler.removeCallbacks(drawRunnable);
+            handler.removeCallbacks(canvasDrawRunnable);
+            handler.removeCallbacks(videoDrawRunnable);
             counterRepo.removeChangeListener(dataChangeListener);
             wallpaperRepo.removeChangeListener(dataChangeListener);
-            releaseMediaPlayer();
+            if (videoRenderer != null) {
+                videoRenderer.releaseEGL();
+            }
             super.onDestroy();
         }
 
@@ -75,19 +93,12 @@ public class DayDriftWallpaperService extends WallpaperService {
         public void onVisibilityChanged(boolean visible) {
             this.visible = visible;
             if (visible) {
-                checkVideoState();
-                handler.post(drawRunnable);
-                if (mediaPlayer != null && !mediaPlayer.isPlaying()) {
-                    try {
-                        mediaPlayer.start();
-                    } catch (Exception ignored) {}
-                }
+                updateEngineState();
             } else {
-                handler.removeCallbacks(drawRunnable);
-                if (mediaPlayer != null && mediaPlayer.isPlaying()) {
-                    try {
-                        mediaPlayer.pause();
-                    } catch (Exception ignored) {}
+                handler.removeCallbacks(canvasDrawRunnable);
+                handler.removeCallbacks(videoDrawRunnable);
+                if (videoRenderer != null) {
+                    videoRenderer.setPaused(true);
                 }
             }
         }
@@ -95,108 +106,80 @@ public class DayDriftWallpaperService extends WallpaperService {
         @Override
         public void onSurfaceCreated(SurfaceHolder holder) {
             super.onSurfaceCreated(holder);
-            checkVideoState();
+            updateEngineState();
         }
 
         @Override
         public void onSurfaceChanged(SurfaceHolder holder, int format, int width, int height) {
             super.onSurfaceChanged(holder, format, width, height);
-            checkVideoState();
-            drawFrame();
+            this.surfaceWidth = width;
+            this.surfaceHeight = height;
+            updateEngineState();
         }
 
         @Override
         public void onSurfaceDestroyed(SurfaceHolder holder) {
             visible = false;
-            handler.removeCallbacks(drawRunnable);
-            releaseMediaPlayer();
+            handler.removeCallbacks(canvasDrawRunnable);
+            handler.removeCallbacks(videoDrawRunnable);
+            if (videoRenderer != null) {
+                videoRenderer.releaseEGL();
+            }
+            currentPlayingVideoPath = null;
             super.onSurfaceDestroyed(holder);
         }
 
-        private void checkVideoState() {
+        private boolean isVideoMode() {
             WallpaperConfig config = wallpaperRepo.getConfig();
-            boolean isVideo = WallpaperConfig.TYPE_VIDEO.equals(config.backgroundType) && config.videoUri != null;
-
-            if (isVideo) {
-                if (mediaPlayer == null || !config.videoUri.equals(currentPlayingVideo)) {
-                    startVideoPlayback(config.videoUri);
-                }
-            } else {
-                releaseMediaPlayer();
-            }
+            return WallpaperConfig.TYPE_VIDEO.equals(config.backgroundType) && config.videoUri != null && new File(config.videoUri).exists();
         }
 
-        private void startVideoPlayback(String videoUriStr) {
-            releaseMediaPlayer();
+        private void updateEngineState() {
             SurfaceHolder holder = getSurfaceHolder();
             if (holder == null || holder.getSurface() == null || !holder.getSurface().isValid()) return;
 
-            try {
-                mediaPlayer = new MediaPlayer();
-                mediaPlayer.setSurface(holder.getSurface());
-                if (videoUriStr.startsWith("content://") || videoUriStr.startsWith("android.resource://")) {
-                    mediaPlayer.setDataSource(DayDriftWallpaperService.this, Uri.parse(videoUriStr));
-                } else {
-                    File file = new File(videoUriStr);
-                    if (file.exists()) {
-                        mediaPlayer.setDataSource(file.getAbsolutePath());
-                    } else {
-                        mediaPlayer.setDataSource(DayDriftWallpaperService.this, Uri.parse(videoUriStr));
-                    }
-                }
-                mediaPlayer.setLooping(true);
-                mediaPlayer.setVolume(0f, 0f); // Mute for wallpaper
-                mediaPlayer.prepare();
-                if (visible) {
-                    mediaPlayer.start();
-                }
-                currentPlayingVideo = videoUriStr;
-            } catch (Exception e) {
-                releaseMediaPlayer();
-            }
-        }
-
-        private void releaseMediaPlayer() {
-            if (mediaPlayer != null) {
-                try {
-                    if (mediaPlayer.isPlaying()) mediaPlayer.stop();
-                    mediaPlayer.reset();
-                    mediaPlayer.release();
-                } catch (Exception ignored) {}
-                mediaPlayer = null;
-            }
-            currentPlayingVideo = null;
-        }
-
-        private void drawFrame() {
             WallpaperConfig config = wallpaperRepo.getConfig();
-            // If playing video, video decoder writes directly to Surface
-            if (WallpaperConfig.TYPE_VIDEO.equals(config.backgroundType) && mediaPlayer != null) {
-                // If there is an active counter, draw it over the surface
-                CounterModel counter = counterRepo.getActiveWallpaperCounter();
-                if (counter != null && counter.isVisibleOnWallpaper) {
-                    // Draw counter overlay
-                    SurfaceHolder holder = getSurfaceHolder();
-                    if (holder != null && holder.getSurface().isValid()) {
-                        Canvas canvas = null;
-                        try {
-                            canvas = holder.lockCanvas();
-                            if (canvas != null) {
-                                renderer.render(canvas, canvas.getWidth(), canvas.getHeight(), config, counter, System.currentTimeMillis());
-                            }
-                        } catch (Exception ignored) {
-                        } finally {
-                            if (canvas != null) {
-                                try {
-                                    holder.unlockCanvasAndPost(canvas);
-                                } catch (Exception ignored) {}
-                            }
-                        }
-                    }
-                }
-                return;
-            }
 
+            if (isVideoMode()) {
+                handler.removeCallbacks(canvasDrawRunnable);
+                String videoPath = config.videoUri;
+
+                if (!videoPath.equals(currentPlayingVideoPath)) {
+                    videoRenderer.releaseEGL();
+                    boolean initialized = videoRenderer.initEGL(holder.getSurface(), surfaceWidth, surfaceHeight);
+                    if (initialized) {
+                        videoRenderer.startVideo(videoPath);
+                        currentPlayingVideoPath = videoPath;
+                    }
+                } else {
+                    videoRenderer.setPaused(!visible);
+                }
+
+                if (visible) {
+                    handler.removeCallbacks(videoDrawRunnable);
+                    handler.post(videoDrawRunnable);
+                }
+            } else {
+                handler.removeCallbacks(videoDrawRunnable);
+                if (videoRenderer != null) {
+                    videoRenderer.releaseEGL();
+                }
+                currentPlayingVideoPath = null;
+
+                if (visible) {
+                    handler.removeCallbacks(canvasDrawRunnable);
+                    handler.post(canvasDrawRunnable);
+                }
+            }
+        }
+
+        private void drawVideoFrame() {
+            WallpaperConfig config = wallpaperRepo.getConfig();
+            CounterModel counter = counterRepo.getActiveWallpaperCounter();
+            videoRenderer.render(config, counter, System.currentTimeMillis());
+        }
+
+        private void drawCanvasFrame() {
             SurfaceHolder holder = getSurfaceHolder();
             if (holder == null || !holder.getSurface().isValid()) return;
 
@@ -204,8 +187,9 @@ public class DayDriftWallpaperService extends WallpaperService {
             try {
                 canvas = holder.lockCanvas();
                 if (canvas != null) {
+                    WallpaperConfig config = wallpaperRepo.getConfig();
                     CounterModel counter = counterRepo.getActiveWallpaperCounter();
-                    renderer.render(canvas, canvas.getWidth(), canvas.getHeight(), config, counter, System.currentTimeMillis());
+                    canvasRenderer.render(canvas, canvas.getWidth(), canvas.getHeight(), config, counter, System.currentTimeMillis());
                 }
             } catch (Exception ignored) {
             } finally {

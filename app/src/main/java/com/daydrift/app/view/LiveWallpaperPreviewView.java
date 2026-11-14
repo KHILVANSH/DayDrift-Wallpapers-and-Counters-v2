@@ -155,3 +155,4 @@ public class LiveWallpaperPreviewView extends View {
         }
     }
 }
+

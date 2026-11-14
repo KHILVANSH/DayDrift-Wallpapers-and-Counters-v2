@@ -3,3 +3,4 @@
     android:thumbnail="@drawable/ic_wallpaper_preview"
     android:description="@string/wallpaper_description"
     android:settingsActivity="com.daydrift.app.ui.MainActivity" />
+

@@ -95,7 +95,8 @@ public class DayDriftWallpaperRenderer {
                 canvas.drawColor(Color.parseColor("#0B0E14"));
             }
         } else if (WallpaperConfig.TYPE_VIDEO.equals(type)) {
-            canvas.drawColor(Color.BLACK);
+            // Keep background transparent so underlying hardware video is clearly visible
+            canvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR);
         }
 
         // Apply background dimming if requested

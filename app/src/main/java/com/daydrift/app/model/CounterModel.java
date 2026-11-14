@@ -118,3 +118,4 @@ public class CounterModel implements Serializable {
         return model;
     }
 }
+

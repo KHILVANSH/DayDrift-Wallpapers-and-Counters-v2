@@ -157,6 +157,12 @@
                     android:clipChildren="true"
                     android:clipToPadding="true">
 
+                    <TextureView
+                        android:id="@+id/studioVideoTextureView"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:visibility="gone" />
+
                     <com.daydrift.app.view.LiveWallpaperPreviewView
                         android:id="@+id/studioPreviewView"
                         android:layout_width="match_parent"
@@ -213,9 +219,9 @@
                 </FrameLayout>
             </LinearLayout>
 
-            <!-- Unsaved Alignment Changes Bar -->
+            <!-- Unsaved Changes Action Bar -->
             <LinearLayout
-                android:id="@+id/barUnsavedAlignment"
+                android:id="@+id/barUnsavedChanges"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -226,16 +232,17 @@
                 android:layout_marginBottom="14dp">
 
                 <TextView
+                    android:id="@+id/tvUnsavedNotice"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="Unsaved Alignment"
+                    android:text="Unsaved Wallpaper Changes"
                     android:textColor="@color/accent_amber"
                     android:textSize="13sp"
                     android:textStyle="bold" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnDiscardAlignment"
+                    android:id="@+id/btnDiscardChanges"
                     android:layout_width="wrap_content"
                     android:layout_height="36dp"
                     android:text="Discard"
@@ -247,10 +254,10 @@
                     android:layout_marginEnd="6dp" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnSaveAlignment"
+                    android:id="@+id/btnSaveChanges"
                     android:layout_width="wrap_content"
                     android:layout_height="36dp"
-                    android:text="Save Alignment"
+                    android:text="Save Changes"
                     android:textAllCaps="false"
                     android:textSize="11sp"
                     android:textStyle="bold"

@@ -38,7 +38,10 @@ public class CounterEditorDialog {
         dialog.setContentView(view);
         dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
 
-        final CounterModel model = existingCounter != null ? existingCounter : new CounterModel();
+        // Create a completely detached working copy so modifications are never saved until Save is explicitly clicked
+        final CounterModel model = existingCounter != null
+                ? CounterModel.fromJsonObject(existingCounter.toJsonObject())
+                : new CounterModel();
 
         TextView dialogTitle = view.findViewById(R.id.dialogTitle);
         dialogTitle.setText(existingCounter != null ? "Edit Countdown" : "Create Countdown");

@@ -56,3 +56,4 @@ public class WallpaperConfig implements Serializable {
         return config;
     }
 }
+

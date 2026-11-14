@@ -4,8 +4,12 @@ import android.app.WallpaperManager;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.SurfaceTexture;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.Surface;
+import android.view.TextureView;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
@@ -35,11 +39,14 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
     private CounterRepository counterRepo;
     private WallpaperRepository wallpaperRepo;
     private UnsplashService unsplashService;
+    private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
 
     private CounterAdapter counterAdapter;
     private UnsplashAdapter unsplashAdapter;
@@ -49,18 +56,24 @@ public class MainActivity extends AppCompatActivity {
     private MaterialButton tabCounters;
     private MaterialButton tabStudio;
 
+    private TextureView studioVideoTextureView;
     private LiveWallpaperPreviewView studioPreviewView;
     private MaterialButton btnToggleTouchLock;
-    private LinearLayout barUnsavedAlignment;
+    private LinearLayout barUnsavedChanges;
     private LinearLayout panelGradientControls;
     private MaterialButton btnPickSolidColor;
     private LinearLayout panelUnsplash;
     private LinearLayout panelVideo;
     private TextView tvVideoStatus;
 
-    private CounterModel activeCounterWorkingCopy;
+    // Studio Working Copy (DRAFT STATE - NEVER SAVED UNTIL USER CLICKS SAVE BUTTON)
+    private WallpaperConfig workingWallpaperConfig;
+    private CounterModel workingCounterModel;
     private boolean isTouchLocked = true;
-    private boolean hasUnsavedAlignmentChanges = false;
+    private boolean hasUnsavedChanges = false;
+
+    private MediaPlayer studioMediaPlayer;
+    private Surface studioVideoSurface;
 
     private ActivityResultLauncher<String> photoPickerLauncher;
     private ActivityResultLauncher<String> videoPickerLauncher;
@@ -77,39 +90,71 @@ public class MainActivity extends AppCompatActivity {
         initPickers();
         initViews();
         loadCounters();
-        loadStudioConfig();
+        initStudioDraft();
 
-        counterRepo.addChangeListener(this::refreshUi);
-        wallpaperRepo.addChangeListener(this::refreshUi);
+        counterRepo.addChangeListener(() -> runOnUiThread(this::loadCounters));
+        wallpaperRepo.addChangeListener(() -> runOnUiThread(() -> {
+            if (!hasUnsavedChanges) {
+                initStudioDraft();
+            }
+        }));
     }
 
     private void initPickers() {
         photoPickerLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
             if (uri != null) {
-                String path = copyUriToInternalStorage(uri, "selected_wallpaper.jpg");
-                if (path != null) {
-                    WallpaperConfig cfg = wallpaperRepo.getConfig();
-                    cfg.backgroundType = WallpaperConfig.TYPE_IMAGE;
-                    cfg.imageUri = path;
-                    wallpaperRepo.saveConfig(cfg);
-                    Toast.makeText(this, "Photo applied to wallpaper!", Toast.LENGTH_SHORT).show();
-                }
+                Toast.makeText(this, "Importing photo...", Toast.LENGTH_SHORT).show();
+                ioExecutor.execute(() -> {
+                    String path = copyUriToInternalStorage(uri, "photo_" + System.currentTimeMillis() + ".jpg");
+                    if (path != null) {
+                        runOnUiThread(() -> {
+                            workingWallpaperConfig.backgroundType = WallpaperConfig.TYPE_IMAGE;
+                            workingWallpaperConfig.imageUri = path;
+                            markStudioChanged();
+                            updateStudioPreview();
+                            Toast.makeText(this, "Photo selected! Click 'Save Changes' to apply.", Toast.LENGTH_SHORT).show();
+                        });
+                    }
+                });
             }
         });
 
         videoPickerLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
             if (uri != null) {
-                String path = copyUriToInternalStorage(uri, "selected_live_video.mp4");
-                if (path != null) {
-                    WallpaperConfig cfg = wallpaperRepo.getConfig();
-                    cfg.backgroundType = WallpaperConfig.TYPE_VIDEO;
-                    cfg.videoUri = path;
-                    wallpaperRepo.saveConfig(cfg);
-                    tvVideoStatus.setText("Active Video: " + new File(path).getName());
-                    Toast.makeText(this, "Live Video Wallpaper applied!", Toast.LENGTH_SHORT).show();
-                }
+                Toast.makeText(this, "Importing video... Please wait.", Toast.LENGTH_SHORT).show();
+                ioExecutor.execute(() -> {
+                    // Clean up any older cached videos to save storage
+                    cleanOldMediaFiles("video_");
+                    String path = copyUriToInternalStorage(uri, "video_" + System.currentTimeMillis() + ".mp4");
+                    if (path != null) {
+                        runOnUiThread(() -> {
+                            workingWallpaperConfig.backgroundType = WallpaperConfig.TYPE_VIDEO;
+                            workingWallpaperConfig.videoUri = path;
+                            tvVideoStatus.setText("Selected Video: " + new File(path).getName());
+                            markStudioChanged();
+                            updateStudioPreview();
+                            Toast.makeText(this, "Video loaded! Click 'Save Changes' to apply as live wallpaper.", Toast.LENGTH_LONG).show();
+                        });
+                    } else {
+                        runOnUiThread(() -> Toast.makeText(this, "Failed to read selected video file.", Toast.LENGTH_SHORT).show());
+                    }
+                });
             }
         });
+    }
+
+    private void cleanOldMediaFiles(String prefix) {
+        try {
+            File dir = new File(getFilesDir(), "user_media");
+            if (dir.exists() && dir.isDirectory()) {
+                File[] files = dir.listFiles((d, name) -> name.startsWith(prefix));
+                if (files != null) {
+                    for (File f : files) {
+                        f.delete();
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
     }
 
     private String copyUriToInternalStorage(Uri uri, String destFilename) {
@@ -119,7 +164,7 @@ public class MainActivity extends AppCompatActivity {
             File dest = new File(dir, destFilename);
             try (InputStream in = getContentResolver().openInputStream(uri);
                  FileOutputStream out = new FileOutputStream(dest)) {
-                byte[] buffer = new byte[8192];
+                byte[] buffer = new byte[65536];
                 int len;
                 while ((len = in.read(buffer)) != -1) {
                     out.write(buffer, 0, len);
@@ -170,7 +215,9 @@ public class MainActivity extends AppCompatActivity {
             public void onSelectWallpaper(CounterModel counter) {
                 counterRepo.setOnlyWallpaperCounter(counter.id);
                 loadCounters();
-                loadStudioConfig();
+                if (!hasUnsavedChanges) {
+                    initStudioDraft();
+                }
             }
         });
         rvCounters.setAdapter(counterAdapter);
@@ -180,10 +227,13 @@ public class MainActivity extends AppCompatActivity {
             CounterEditorDialog.show(MainActivity.this, null, c -> loadCounters());
         });
 
-        // Studio Preview Setup
+        // Studio Preview Views
+        studioVideoTextureView = findViewById(R.id.studioVideoTextureView);
         studioPreviewView = findViewById(R.id.studioPreviewView);
         btnToggleTouchLock = findViewById(R.id.btnToggleTouchLock);
-        barUnsavedAlignment = findViewById(R.id.barUnsavedAlignment);
+        barUnsavedChanges = findViewById(R.id.barUnsavedChanges);
+
+        setupStudioVideoTexture();
 
         // Start locked by default to prevent accidental touches
         studioPreviewView.setInteractive(false);
@@ -194,31 +244,19 @@ public class MainActivity extends AppCompatActivity {
             btnToggleTouchLock.setText(isTouchLocked ? "🔒 Locked" : "🔓 Edit Mode");
             btnToggleTouchLock.setTextColor(isTouchLocked ? getColor(R.color.text_secondary) : getColor(R.color.primary));
             if (!isTouchLocked) {
-                Toast.makeText(this, "Drag or scale to adjust position", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Interactive edit mode enabled. Drag or scale the counter.", Toast.LENGTH_SHORT).show();
             }
         });
 
         studioPreviewView.setOnTransformChangeListener((x, y, scale, rotation) -> {
             if (!isTouchLocked) {
-                hasUnsavedAlignmentChanges = true;
-                barUnsavedAlignment.setVisibility(View.VISIBLE);
+                markStudioChanged();
             }
         });
 
-        findViewById(R.id.btnSaveAlignment).setOnClickListener(v -> {
-            if (activeCounterWorkingCopy != null) {
-                counterRepo.saveCounter(activeCounterWorkingCopy);
-                hasUnsavedAlignmentChanges = false;
-                barUnsavedAlignment.setVisibility(View.GONE);
-                Toast.makeText(this, "Alignment saved successfully!", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        findViewById(R.id.btnDiscardAlignment).setOnClickListener(v -> {
-            hasUnsavedAlignmentChanges = false;
-            barUnsavedAlignment.setVisibility(View.GONE);
-            loadStudioConfig();
-        });
+        // Save & Discard Buttons (Action Bar)
+        findViewById(R.id.btnSaveChanges).setOnClickListener(v -> saveStudioChanges());
+        findViewById(R.id.btnDiscardChanges).setOnClickListener(v -> discardStudioChanges());
 
         findViewById(R.id.btnEnlargePreview).setOnClickListener(v -> {
             Intent intent = new Intent(this, EnlargedPreviewActivity.class);
@@ -247,17 +285,18 @@ public class MainActivity extends AppCompatActivity {
         menuBg.setText(bgMenuOptions[0], false);
 
         menuBg.setOnItemClickListener((parent, v, pos, id) -> {
-            WallpaperConfig cfg = wallpaperRepo.getConfig();
             switch (pos) {
                 case 0: // Gradient
-                    cfg.backgroundType = WallpaperConfig.TYPE_GRADIENT;
-                    wallpaperRepo.saveConfig(cfg);
+                    workingWallpaperConfig.backgroundType = WallpaperConfig.TYPE_GRADIENT;
                     updateBackgroundPanels(WallpaperConfig.TYPE_GRADIENT);
+                    markStudioChanged();
+                    updateStudioPreview();
                     break;
                 case 1: // Solid Color
-                    cfg.backgroundType = WallpaperConfig.TYPE_SOLID;
-                    wallpaperRepo.saveConfig(cfg);
+                    workingWallpaperConfig.backgroundType = WallpaperConfig.TYPE_SOLID;
                     updateBackgroundPanels(WallpaperConfig.TYPE_SOLID);
+                    markStudioChanged();
+                    updateStudioPreview();
                     break;
                 case 2: // My Photos
                     updateBackgroundPanels(WallpaperConfig.TYPE_IMAGE);
@@ -268,20 +307,21 @@ public class MainActivity extends AppCompatActivity {
                     searchUnsplash("dark amoled");
                     break;
                 case 4: // Video
-                    cfg.backgroundType = WallpaperConfig.TYPE_VIDEO;
-                    wallpaperRepo.saveConfig(cfg);
+                    workingWallpaperConfig.backgroundType = WallpaperConfig.TYPE_VIDEO;
                     updateBackgroundPanels(WallpaperConfig.TYPE_VIDEO);
+                    markStudioChanged();
+                    updateStudioPreview();
                     break;
             }
         });
 
         // Solid Color Pick
         btnPickSolidColor.setOnClickListener(v -> {
-            WallpaperConfig cfg = wallpaperRepo.getConfig();
-            ColorPickerDialog.show(this, "Wallpaper Solid Color", cfg.solidColor, col -> {
-                cfg.solidColor = col;
-                wallpaperRepo.saveConfig(cfg);
+            ColorPickerDialog.show(this, "Wallpaper Solid Color", workingWallpaperConfig.solidColor, col -> {
+                workingWallpaperConfig.solidColor = col;
                 btnPickSolidColor.setBackgroundColor(col);
+                markStudioChanged();
+                updateStudioPreview();
             });
         });
 
@@ -289,31 +329,35 @@ public class MainActivity extends AppCompatActivity {
         TextView tvBgAngle = findViewById(R.id.tvBgAngle);
         Slider sliderBgAngle = findViewById(R.id.sliderBgAngle);
         sliderBgAngle.addOnChangeListener((slider, value, fromUser) -> {
-            int angle = (int) value;
-            tvBgAngle.setText("Gradient Angle: " + angle + "°");
-            WallpaperConfig cfg = wallpaperRepo.getConfig();
-            if (cfg.gradientConfig == null) cfg.gradientConfig = new GradientConfig();
-            cfg.gradientConfig.angle = angle;
-            wallpaperRepo.saveConfig(cfg);
+            if (fromUser) {
+                int angle = (int) value;
+                tvBgAngle.setText("Gradient Angle: " + angle + "°");
+                if (workingWallpaperConfig.gradientConfig == null) workingWallpaperConfig.gradientConfig = new GradientConfig();
+                workingWallpaperConfig.gradientConfig.angle = angle;
+                markStudioChanged();
+                updateStudioPreview();
+            }
         });
 
         findViewById(R.id.btnBgStartColor).setOnClickListener(v -> {
-            WallpaperConfig cfg = wallpaperRepo.getConfig();
-            int current = cfg.gradientConfig != null ? cfg.gradientConfig.startColor : Color.BLACK;
+            int current = workingWallpaperConfig.gradientConfig != null ? workingWallpaperConfig.gradientConfig.startColor : Color.BLACK;
             ColorPickerDialog.show(this, "Start Color", current, col -> {
-                if (cfg.gradientConfig == null) cfg.gradientConfig = new GradientConfig();
-                cfg.gradientConfig.startColor = col;
-                wallpaperRepo.saveConfig(cfg);
+                if (workingWallpaperConfig.gradientConfig == null) workingWallpaperConfig.gradientConfig = new GradientConfig();
+                workingWallpaperConfig.gradientConfig.startColor = col;
+                findViewById(R.id.btnBgStartColor).setBackgroundColor(col);
+                markStudioChanged();
+                updateStudioPreview();
             });
         });
 
         findViewById(R.id.btnBgEndColor).setOnClickListener(v -> {
-            WallpaperConfig cfg = wallpaperRepo.getConfig();
-            int current = cfg.gradientConfig != null ? cfg.gradientConfig.endColor : Color.DKGRAY;
+            int current = workingWallpaperConfig.gradientConfig != null ? workingWallpaperConfig.gradientConfig.endColor : Color.DKGRAY;
             ColorPickerDialog.show(this, "End Color", current, col -> {
-                if (cfg.gradientConfig == null) cfg.gradientConfig = new GradientConfig();
-                cfg.gradientConfig.endColor = col;
-                wallpaperRepo.saveConfig(cfg);
+                if (workingWallpaperConfig.gradientConfig == null) workingWallpaperConfig.gradientConfig = new GradientConfig();
+                workingWallpaperConfig.gradientConfig.endColor = col;
+                findViewById(R.id.btnBgEndColor).setBackgroundColor(col);
+                markStudioChanged();
+                updateStudioPreview();
             });
         });
 
@@ -331,11 +375,11 @@ public class MainActivity extends AppCompatActivity {
             unsplashService.downloadPhoto(this, item, new UnsplashService.DownloadCallback() {
                 @Override
                 public void onSuccess(String localFilePath) {
-                    WallpaperConfig cfg = wallpaperRepo.getConfig();
-                    cfg.backgroundType = WallpaperConfig.TYPE_IMAGE;
-                    cfg.imageUri = localFilePath;
-                    wallpaperRepo.saveConfig(cfg);
-                    Toast.makeText(MainActivity.this, "Wallpaper set from Unsplash!", Toast.LENGTH_SHORT).show();
+                    workingWallpaperConfig.backgroundType = WallpaperConfig.TYPE_IMAGE;
+                    workingWallpaperConfig.imageUri = localFilePath;
+                    markStudioChanged();
+                    updateStudioPreview();
+                    Toast.makeText(MainActivity.this, "Photo applied! Click 'Save Changes' to save.", Toast.LENGTH_SHORT).show();
                 }
 
                 @Override
@@ -350,6 +394,150 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btnPickVideo).setOnClickListener(v -> {
             videoPickerLauncher.launch("video/*");
         });
+    }
+
+    private void setupStudioVideoTexture() {
+        studioVideoTextureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+            @Override
+            public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
+                studioVideoSurface = new Surface(surfaceTexture);
+                if (WallpaperConfig.TYPE_VIDEO.equals(workingWallpaperConfig.backgroundType)) {
+                    startStudioVideoPlayback();
+                }
+            }
+
+            @Override
+            public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int width, int height) {}
+
+            @Override
+            public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
+                stopStudioVideoPlayback();
+                if (studioVideoSurface != null) {
+                    studioVideoSurface.release();
+                    studioVideoSurface = null;
+                }
+                return true;
+            }
+
+            @Override
+            public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {}
+        });
+    }
+
+    private void startStudioVideoPlayback() {
+        if (workingWallpaperConfig.videoUri == null || studioVideoSurface == null || !studioVideoSurface.isValid()) {
+            return;
+        }
+
+        File f = new File(workingWallpaperConfig.videoUri);
+        if (!f.exists()) return;
+
+        stopStudioVideoPlayback();
+
+        try {
+            studioMediaPlayer = new MediaPlayer();
+            studioMediaPlayer.setSurface(studioVideoSurface);
+            studioMediaPlayer.setDataSource(f.getAbsolutePath());
+            studioMediaPlayer.setLooping(true);
+            studioMediaPlayer.setVolume(0f, 0f);
+            studioMediaPlayer.setOnPreparedListener(MediaPlayer::start);
+            studioMediaPlayer.prepareAsync();
+        } catch (Exception e) {
+            stopStudioVideoPlayback();
+        }
+    }
+
+    private void stopStudioVideoPlayback() {
+        if (studioMediaPlayer != null) {
+            try {
+                if (studioMediaPlayer.isPlaying()) studioMediaPlayer.stop();
+                studioMediaPlayer.reset();
+                studioMediaPlayer.release();
+            } catch (Exception ignored) {}
+            studioMediaPlayer = null;
+        }
+    }
+
+    private void markStudioChanged() {
+        hasUnsavedChanges = true;
+        barUnsavedChanges.setVisibility(View.VISIBLE);
+    }
+
+    private void saveStudioChanges() {
+        if (workingWallpaperConfig != null) {
+            wallpaperRepo.saveConfig(workingWallpaperConfig);
+        }
+        if (workingCounterModel != null) {
+            counterRepo.saveCounter(workingCounterModel);
+        }
+        hasUnsavedChanges = false;
+        barUnsavedChanges.setVisibility(View.GONE);
+        Toast.makeText(this, "Wallpaper changes saved successfully!", Toast.LENGTH_SHORT).show();
+    }
+
+    private void discardStudioChanges() {
+        hasUnsavedChanges = false;
+        barUnsavedChanges.setVisibility(View.GONE);
+        initStudioDraft();
+        Toast.makeText(this, "Changes discarded.", Toast.LENGTH_SHORT).show();
+    }
+
+    private void initStudioDraft() {
+        WallpaperConfig savedConfig = wallpaperRepo.getConfig();
+        workingWallpaperConfig = WallpaperConfig.fromJsonObject(savedConfig.toJsonObject());
+
+        CounterModel savedCounter = counterRepo.getActiveWallpaperCounter();
+        if (savedCounter != null) {
+            workingCounterModel = CounterModel.fromJsonObject(savedCounter.toJsonObject());
+        }
+
+        updateStudioPanelsAndControls();
+        updateStudioPreview();
+    }
+
+    private void updateStudioPanelsAndControls() {
+        AutoCompleteTextView menuBg = findViewById(R.id.menuBackgroundType);
+        String currentType = workingWallpaperConfig.backgroundType != null ? workingWallpaperConfig.backgroundType : WallpaperConfig.TYPE_GRADIENT;
+
+        if (WallpaperConfig.TYPE_SOLID.equals(currentType)) {
+            menuBg.setText("Solid Color", false);
+            updateBackgroundPanels(WallpaperConfig.TYPE_SOLID);
+            btnPickSolidColor.setBackgroundColor(workingWallpaperConfig.solidColor);
+        } else if (WallpaperConfig.TYPE_IMAGE.equals(currentType)) {
+            menuBg.setText("My Photos (Gallery)", false);
+            updateBackgroundPanels(WallpaperConfig.TYPE_IMAGE);
+        } else if (WallpaperConfig.TYPE_VIDEO.equals(currentType)) {
+            menuBg.setText("Video Live Wallpaper (.mp4)", false);
+            updateBackgroundPanels(WallpaperConfig.TYPE_VIDEO);
+            if (workingWallpaperConfig.videoUri != null) {
+                tvVideoStatus.setText("Selected Video: " + new File(workingWallpaperConfig.videoUri).getName());
+            } else {
+                tvVideoStatus.setText("Choose any video from gallery to loop as live wallpaper.");
+            }
+        } else {
+            menuBg.setText("Gradient Wallpaper", false);
+            updateBackgroundPanels(WallpaperConfig.TYPE_GRADIENT);
+            if (workingWallpaperConfig.gradientConfig != null) {
+                ((Slider) findViewById(R.id.sliderBgAngle)).setValue(workingWallpaperConfig.gradientConfig.angle);
+                ((TextView) findViewById(R.id.tvBgAngle)).setText("Gradient Angle: " + workingWallpaperConfig.gradientConfig.angle + "°");
+                findViewById(R.id.btnBgStartColor).setBackgroundColor(workingWallpaperConfig.gradientConfig.startColor);
+                findViewById(R.id.btnBgEndColor).setBackgroundColor(workingWallpaperConfig.gradientConfig.endColor);
+            }
+        }
+    }
+
+    private void updateStudioPreview() {
+        boolean isVideo = WallpaperConfig.TYPE_VIDEO.equals(workingWallpaperConfig.backgroundType) && workingWallpaperConfig.videoUri != null;
+
+        if (isVideo) {
+            studioVideoTextureView.setVisibility(View.VISIBLE);
+            startStudioVideoPlayback();
+        } else {
+            stopStudioVideoPlayback();
+            studioVideoTextureView.setVisibility(View.GONE);
+        }
+
+        studioPreviewView.setConfig(workingWallpaperConfig, workingCounterModel);
     }
 
     private void updateBackgroundPanels(String type) {
@@ -367,6 +555,7 @@ public class MainActivity extends AppCompatActivity {
             tabCounters.setTextColor(getColor(R.color.bg_dark));
             tabStudio.setBackgroundTintList(android.content.res.ColorStateList.valueOf(getColor(R.color.bg_surface_elevated)));
             tabStudio.setTextColor(getColor(R.color.text_secondary));
+            stopStudioVideoPlayback();
         } else {
             containerCounters.setVisibility(View.GONE);
             containerStudio.setVisibility(View.VISIBLE);
@@ -374,52 +563,17 @@ public class MainActivity extends AppCompatActivity {
             tabStudio.setTextColor(getColor(R.color.bg_dark));
             tabCounters.setBackgroundTintList(android.content.res.ColorStateList.valueOf(getColor(R.color.bg_surface_elevated)));
             tabCounters.setTextColor(getColor(R.color.text_secondary));
-            loadStudioConfig();
+            if (!hasUnsavedChanges) {
+                initStudioDraft();
+            } else {
+                updateStudioPreview();
+            }
         }
     }
 
     private void loadCounters() {
         List<CounterModel> counters = counterRepo.getAllCounters();
         counterAdapter.setCounters(counters);
-    }
-
-    private void loadStudioConfig() {
-        WallpaperConfig cfg = wallpaperRepo.getConfig();
-        CounterModel active = counterRepo.getActiveWallpaperCounter();
-
-        if (active != null) {
-            activeCounterWorkingCopy = CounterModel.fromJsonObject(active.toJsonObject());
-        }
-
-        studioPreviewView.setConfig(cfg, activeCounterWorkingCopy);
-
-        // Update dropdown and panels to match saved config
-        AutoCompleteTextView menuBg = findViewById(R.id.menuBackgroundType);
-        String currentType = cfg.backgroundType != null ? cfg.backgroundType : WallpaperConfig.TYPE_GRADIENT;
-
-        if (WallpaperConfig.TYPE_SOLID.equals(currentType)) {
-            menuBg.setText("Solid Color", false);
-            updateBackgroundPanels(WallpaperConfig.TYPE_SOLID);
-            btnPickSolidColor.setBackgroundColor(cfg.solidColor);
-        } else if (WallpaperConfig.TYPE_IMAGE.equals(currentType)) {
-            menuBg.setText("My Photos (Gallery)", false);
-            updateBackgroundPanels(WallpaperConfig.TYPE_IMAGE);
-        } else if (WallpaperConfig.TYPE_VIDEO.equals(currentType)) {
-            menuBg.setText("Video Live Wallpaper (.mp4)", false);
-            updateBackgroundPanels(WallpaperConfig.TYPE_VIDEO);
-            if (cfg.videoUri != null) {
-                tvVideoStatus.setText("Active Video: " + new File(cfg.videoUri).getName());
-            }
-        } else {
-            menuBg.setText("Gradient Wallpaper", false);
-            updateBackgroundPanels(WallpaperConfig.TYPE_GRADIENT);
-            if (cfg.gradientConfig != null) {
-                ((Slider) findViewById(R.id.sliderBgAngle)).setValue(cfg.gradientConfig.angle);
-                ((TextView) findViewById(R.id.tvBgAngle)).setText("Gradient Angle: " + cfg.gradientConfig.angle + "°");
-                findViewById(R.id.btnBgStartColor).setBackgroundColor(cfg.gradientConfig.startColor);
-                findViewById(R.id.btnBgEndColor).setBackgroundColor(cfg.gradientConfig.endColor);
-            }
-        }
     }
 
     private void searchUnsplash(String query) {
@@ -436,12 +590,24 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void refreshUi() {
-        runOnUiThread(() -> {
-            loadCounters();
-            if (!hasUnsavedAlignmentChanges) {
-                loadStudioConfig();
-            }
-        });
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (containerStudio.getVisibility() == View.VISIBLE && WallpaperConfig.TYPE_VIDEO.equals(workingWallpaperConfig.backgroundType)) {
+            startStudioVideoPlayback();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        stopStudioVideoPlayback();
+        super.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        stopStudioVideoPlayback();
+        ioExecutor.shutdown();
+        super.onDestroy();
     }
 }

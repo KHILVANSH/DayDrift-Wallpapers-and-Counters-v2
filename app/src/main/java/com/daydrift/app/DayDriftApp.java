@@ -12,3 +12,4 @@ public class DayDriftApp extends Application {
         WallpaperRepository.getInstance(this);
     }
 }
+
