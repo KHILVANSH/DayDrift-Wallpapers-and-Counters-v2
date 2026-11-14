@@ -43,8 +43,10 @@ public class DayDriftWallpaperRenderer {
     public void render(Canvas canvas, int width, int height, WallpaperConfig wallpaperConfig, CounterModel counter, long currentTime) {
         if (canvas == null || width <= 0 || height <= 0) return;
 
-        // 1. Draw Background
-        renderBackground(canvas, width, height, wallpaperConfig);
+        // 1. Draw Background (only if wallpaperConfig is provided)
+        if (wallpaperConfig != null) {
+            renderBackground(canvas, width, height, wallpaperConfig);
+        }
 
         // 2. Draw Active Counter Overlay
         if (counter != null && counter.isVisibleOnWallpaper) {
@@ -54,7 +56,6 @@ public class DayDriftWallpaperRenderer {
 
     private void renderBackground(Canvas canvas, int width, int height, WallpaperConfig config) {
         if (config == null) {
-            canvas.drawColor(Color.parseColor("#0B0E14"));
             return;
         }
 
@@ -95,8 +96,8 @@ public class DayDriftWallpaperRenderer {
                 canvas.drawColor(Color.parseColor("#0B0E14"));
             }
         } else if (WallpaperConfig.TYPE_VIDEO.equals(type)) {
-            // Keep background transparent so underlying hardware video is clearly visible
-            canvas.drawColor(Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR);
+            // For video backgrounds, the video frames are rendered directly by TextureView
+            // or OpenGL ES underneath this overlay. Do NOT draw anything here to maintain transparency.
         }
 
         // Apply background dimming if requested

@@ -14,6 +14,7 @@ import com.daydrift.app.render.VideoWallpaperRenderer;
 import com.daydrift.app.view.DayDriftWallpaperRenderer;
 
 import java.io.File;
+import java.io.FileInputStream;
 
 public class DayDriftWallpaperService extends WallpaperService {
 
@@ -65,10 +66,18 @@ public class DayDriftWallpaperService extends WallpaperService {
             try {
                 directMediaPlayer = new MediaPlayer();
                 directMediaPlayer.setSurface(surface);
-                directMediaPlayer.setDataSource(videoPath);
+                File f = new File(videoPath);
+                try (FileInputStream fis = new FileInputStream(f)) {
+                    directMediaPlayer.setDataSource(fis.getFD(), 0, f.length());
+                }
                 directMediaPlayer.setLooping(true);
                 directMediaPlayer.setVolume(0f, 0f);
                 directMediaPlayer.setOnPreparedListener(MediaPlayer::start);
+                directMediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                    android.util.Log.e("DayDrift", "directMediaPlayer error: " + what + ", " + extra);
+                    releaseDirectMediaPlayer();
+                    return true;
+                });
                 directMediaPlayer.prepareAsync();
                 android.util.Log.i("DayDrift", "Direct video fallback started successfully");
             } catch (Exception e) {
@@ -154,6 +163,9 @@ public class DayDriftWallpaperService extends WallpaperService {
             super.onSurfaceChanged(holder, format, width, height);
             this.surfaceWidth = width;
             this.surfaceHeight = height;
+            if (videoRenderer != null) {
+                videoRenderer.onSurfaceResize(width, height);
+            }
             updateEngineState();
         }
 

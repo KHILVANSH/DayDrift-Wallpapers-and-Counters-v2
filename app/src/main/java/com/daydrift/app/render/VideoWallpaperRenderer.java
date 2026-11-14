@@ -22,6 +22,7 @@ import com.daydrift.app.model.WallpaperConfig;
 import com.daydrift.app.view.DayDriftWallpaperRenderer;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -158,7 +159,6 @@ public class VideoWallpaperRenderer {
             EGL14.EGL_RED_SIZE, 8,
             EGL14.EGL_GREEN_SIZE, 8,
             EGL14.EGL_BLUE_SIZE, 8,
-            EGL14.EGL_ALPHA_SIZE, 8,
             EGL14.EGL_RENDERABLE_TYPE, EGL14.EGL_OPENGL_ES2_BIT,
             EGL14.EGL_SURFACE_TYPE, EGL14.EGL_WINDOW_BIT,
             EGL14.EGL_NONE
@@ -186,6 +186,37 @@ public class VideoWallpaperRenderer {
         initGL();
         isInitialized = true;
         return true;
+    }
+
+    public void onSurfaceResize(int width, int height) {
+        if (width <= 0 || height <= 0) return;
+        this.surfaceWidth = width;
+        this.surfaceHeight = height;
+        if (overlayBitmap != null && !overlayBitmap.isRecycled()) {
+            overlayBitmap.recycle();
+        }
+        overlayBitmap = Bitmap.createBitmap(surfaceWidth, surfaceHeight, Bitmap.Config.ARGB_8888);
+        overlayCanvas = new Canvas(overlayBitmap);
+        if (overlayTextureId != 0) {
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTextureId);
+            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, overlayBitmap, 0);
+        }
+        if (mediaPlayer != null) {
+            int vw = mediaPlayer.getVideoWidth();
+            int vh = mediaPlayer.getVideoHeight();
+            if (vw > 0 && vh > 0) {
+                float videoAspect = (float) vw / (float) vh;
+                float surfaceAspect = (float) surfaceWidth / (float) surfaceHeight;
+                Matrix.setIdentityM(mvpMatrix, 0);
+                if (videoAspect > surfaceAspect) {
+                    float scaleX = videoAspect / surfaceAspect;
+                    Matrix.scaleM(mvpMatrix, 0, scaleX, 1.0f, 1.0f);
+                } else {
+                    float scaleY = surfaceAspect / videoAspect;
+                    Matrix.scaleM(mvpMatrix, 0, 1.0f, scaleY, 1.0f);
+                }
+            }
+        }
     }
 
     private void initGL() {
@@ -221,6 +252,7 @@ public class VideoWallpaperRenderer {
         // Setup overlay Bitmap & Canvas
         overlayBitmap = Bitmap.createBitmap(surfaceWidth, surfaceHeight, Bitmap.Config.ARGB_8888);
         overlayCanvas = new Canvas(overlayBitmap);
+        GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, overlayBitmap, 0);
     }
 
     public void startVideo(String videoPath) {
@@ -235,7 +267,9 @@ public class VideoWallpaperRenderer {
             if (videoSurface != null && videoSurface.isValid()) {
                 mediaPlayer.setSurface(videoSurface);
             }
-            mediaPlayer.setDataSource(f.getAbsolutePath());
+            try (FileInputStream fis = new FileInputStream(f)) {
+                mediaPlayer.setDataSource(fis.getFD(), 0, f.length());
+            }
             mediaPlayer.setLooping(true);
             mediaPlayer.setVolume(0f, 0f);
             mediaPlayer.setOnVideoSizeChangedListener((mp, vw, vh) -> {
@@ -252,13 +286,31 @@ public class VideoWallpaperRenderer {
                     }
                 }
             });
-            mediaPlayer.setOnPreparedListener(MediaPlayer::start);
+            mediaPlayer.setOnPreparedListener(mp -> {
+                mp.start();
+                int vw = mp.getVideoWidth();
+                int vh = mp.getVideoHeight();
+                if (vw > 0 && vh > 0 && surfaceWidth > 0 && surfaceHeight > 0) {
+                    float videoAspect = (float) vw / (float) vh;
+                    float surfaceAspect = (float) surfaceWidth / (float) surfaceHeight;
+                    Matrix.setIdentityM(mvpMatrix, 0);
+                    if (videoAspect > surfaceAspect) {
+                        float scaleX = videoAspect / surfaceAspect;
+                        Matrix.scaleM(mvpMatrix, 0, scaleX, 1.0f, 1.0f);
+                    } else {
+                        float scaleY = surfaceAspect / videoAspect;
+                        Matrix.scaleM(mvpMatrix, 0, 1.0f, scaleY, 1.0f);
+                    }
+                }
+            });
             mediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                android.util.Log.e("DayDrift", "VideoWallpaperRenderer MediaPlayer error: " + what + ", " + extra);
                 releaseMediaPlayer();
                 return true;
             });
             mediaPlayer.prepareAsync();
         } catch (Exception e) {
+            android.util.Log.e("DayDrift", "VideoWallpaperRenderer startVideo failed", e);
             releaseMediaPlayer();
         }
     }
@@ -291,6 +343,7 @@ public class VideoWallpaperRenderer {
         int texCoordHandle = GLES20.glGetAttribLocation(videoProgram, "aTextureCoord");
         int mvpHandle = GLES20.glGetUniformLocation(videoProgram, "uMVPMatrix");
         int stHandle = GLES20.glGetUniformLocation(videoProgram, "uSTMatrix");
+        int vSamplerHandle = GLES20.glGetUniformLocation(videoProgram, "sTexture");
 
         GLES20.glEnableVertexAttribArray(posHandle);
         GLES20.glVertexAttribPointer(posHandle, 3, GLES20.GL_FLOAT, false, 12, vertexBuffer);
@@ -300,6 +353,9 @@ public class VideoWallpaperRenderer {
 
         GLES20.glUniformMatrix4fv(mvpHandle, 1, false, mvpMatrix, 0);
         GLES20.glUniformMatrix4fv(stHandle, 1, false, videoTransformMatrix, 0);
+        if (vSamplerHandle >= 0) {
+            GLES20.glUniform1i(vSamplerHandle, 0);
+        }
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, videoTextureId);
@@ -319,6 +375,7 @@ public class VideoWallpaperRenderer {
             GLES20.glUseProgram(overlayProgram);
             int oPosHandle = GLES20.glGetAttribLocation(overlayProgram, "aPosition");
             int oTexHandle = GLES20.glGetAttribLocation(overlayProgram, "aTextureCoord");
+            int oSamplerHandle = GLES20.glGetUniformLocation(overlayProgram, "sTexture");
 
             GLES20.glEnableVertexAttribArray(oPosHandle);
             GLES20.glVertexAttribPointer(oPosHandle, 3, GLES20.GL_FLOAT, false, 12, vertexBuffer);
@@ -328,7 +385,10 @@ public class VideoWallpaperRenderer {
 
             GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, overlayTextureId);
-            GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, overlayBitmap, 0);
+            GLUtils.texSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, overlayBitmap);
+            if (oSamplerHandle >= 0) {
+                GLES20.glUniform1i(oSamplerHandle, 1);
+            }
 
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
 

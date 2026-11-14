@@ -19,6 +19,7 @@ import com.daydrift.app.view.LiveWallpaperPreviewView;
 import com.google.android.material.slider.Slider;
 
 import java.io.File;
+import java.io.FileInputStream;
 
 public class EnlargedPreviewActivity extends AppCompatActivity {
     public static final String EXTRA_CONFIG_JSON = "extra_config_json";
@@ -173,12 +174,17 @@ public class EnlargedPreviewActivity extends AppCompatActivity {
         videoTextureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
             public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
+                if (videoSurface != null) videoSurface.release();
                 videoSurface = new Surface(surfaceTexture);
-                startVideo(videoFile.getAbsolutePath());
+                startVideo(videoFile);
             }
 
             @Override
-            public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int width, int height) {}
+            public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int width, int height) {
+                if (mediaPlayer != null) {
+                    adjustEnlargedAspect(mediaPlayer.getVideoWidth(), mediaPlayer.getVideoHeight());
+                }
+            }
 
             @Override
             public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
@@ -196,40 +202,50 @@ public class EnlargedPreviewActivity extends AppCompatActivity {
 
         if (videoTextureView.isAvailable() && videoSurface == null) {
             videoSurface = new Surface(videoTextureView.getSurfaceTexture());
-            startVideo(videoFile.getAbsolutePath());
+            startVideo(videoFile);
         }
     }
 
-    private void startVideo(String path) {
+    private void startVideo(File videoFile) {
         releaseMediaPlayer();
+        if (videoFile == null || !videoFile.exists()) return;
         if (videoSurface == null || !videoSurface.isValid()) return;
 
         try {
             mediaPlayer = new MediaPlayer();
             mediaPlayer.setSurface(videoSurface);
-            mediaPlayer.setDataSource(path);
+            try (FileInputStream fis = new FileInputStream(videoFile)) {
+                mediaPlayer.setDataSource(fis.getFD(), 0, videoFile.length());
+            }
             mediaPlayer.setLooping(true);
             mediaPlayer.setVolume(0f, 0f);
-            mediaPlayer.setOnVideoSizeChangedListener((mp, vw, vh) -> {
-                if (vw > 0 && vh > 0 && videoTextureView != null) {
-                    int w = videoTextureView.getWidth();
-                    int h = videoTextureView.getHeight();
-                    if (w > 0 && h > 0) {
-                        float vAspect = (float) vw / vh;
-                        float viewAspect = (float) w / h;
-                        Matrix m = new Matrix();
-                        float sx = (vAspect > viewAspect) ? vAspect / viewAspect : 1.0f;
-                        float sy = (vAspect > viewAspect) ? 1.0f : viewAspect / vAspect;
-                        m.setScale(sx, sy, w / 2.0f, h / 2.0f);
-                        videoTextureView.setTransform(m);
-                    }
-                }
+            mediaPlayer.setOnVideoSizeChangedListener((mp, vw, vh) -> adjustEnlargedAspect(vw, vh));
+            mediaPlayer.setOnPreparedListener(mp -> {
+                mp.start();
+                adjustEnlargedAspect(mp.getVideoWidth(), mp.getVideoHeight());
             });
-            mediaPlayer.setOnPreparedListener(MediaPlayer::start);
+            mediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                releaseMediaPlayer();
+                return true;
+            });
             mediaPlayer.prepareAsync();
         } catch (Exception ignored) {
             releaseMediaPlayer();
         }
+    }
+
+    private void adjustEnlargedAspect(int vw, int vh) {
+        if (vw <= 0 || vh <= 0 || videoTextureView == null) return;
+        int w = videoTextureView.getWidth();
+        int h = videoTextureView.getHeight();
+        if (w <= 0 || h <= 0) return;
+        float vAspect = (float) vw / vh;
+        float viewAspect = (float) w / h;
+        Matrix m = new Matrix();
+        float sx = (vAspect > viewAspect) ? vAspect / viewAspect : 1.0f;
+        float sy = (vAspect > viewAspect) ? 1.0f : viewAspect / vAspect;
+        m.setScale(sx, sy, w / 2.0f, h / 2.0f);
+        videoTextureView.setTransform(m);
     }
 
     private void releaseMediaPlayer() {

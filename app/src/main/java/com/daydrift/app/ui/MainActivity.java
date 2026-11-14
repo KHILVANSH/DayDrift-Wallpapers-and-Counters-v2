@@ -36,6 +36,7 @@ import com.google.android.material.slider.Slider;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.List;
@@ -173,12 +174,19 @@ public class MainActivity extends AppCompatActivity {
 
     private void cleanOldMediaFiles(String prefix) {
         try {
+            WallpaperConfig savedConfig = wallpaperRepo != null ? wallpaperRepo.getConfig() : null;
+            String activeVideoPath = savedConfig != null ? savedConfig.videoUri : null;
+            String activeImagePath = savedConfig != null ? savedConfig.imageUri : null;
+
             File dir = new File(getFilesDir(), "user_media");
             if (dir.exists() && dir.isDirectory()) {
                 File[] files = dir.listFiles((d, name) -> name.startsWith(prefix));
                 if (files != null) {
                     for (File f : files) {
-                        f.delete();
+                        String abs = f.getAbsolutePath();
+                        if (!abs.equals(activeVideoPath) && !abs.equals(activeImagePath)) {
+                            f.delete();
+                        }
                     }
                 }
             }
@@ -213,13 +221,16 @@ public class MainActivity extends AppCompatActivity {
     private String extractVideoDetails(String path) {
         try {
             android.media.MediaMetadataRetriever mmr = new android.media.MediaMetadataRetriever();
-            mmr.setDataSource(path);
+            File f = new File(path);
+            try (FileInputStream fis = new FileInputStream(f)) {
+                mmr.setDataSource(fis.getFD());
+            }
             String durStr = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
             String wStr = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
             String hStr = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
+            try { mmr.release(); } catch (Exception ignored) {}
             long durMs = durStr != null ? Long.parseLong(durStr) : 0;
             long sec = durMs / 1000;
-            File f = new File(path);
             float mb = f.length() / (1024f * 1024f);
             return String.format(java.util.Locale.getDefault(), "Video: %s×%s • %ds • %.1f MB (Auto-looping)",
                     wStr != null ? wStr : "HD", hStr != null ? hStr : "", sec, mb);
@@ -521,14 +532,21 @@ public class MainActivity extends AppCompatActivity {
         studioVideoTextureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
             @Override
             public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
+                if (studioVideoSurface != null) {
+                    studioVideoSurface.release();
+                }
                 studioVideoSurface = new Surface(surfaceTexture);
-                if (WallpaperConfig.TYPE_VIDEO.equals(workingWallpaperConfig.backgroundType)) {
+                if (workingWallpaperConfig != null && WallpaperConfig.TYPE_VIDEO.equals(workingWallpaperConfig.backgroundType)) {
                     startStudioVideoPlayback();
                 }
             }
 
             @Override
-            public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int width, int height) {}
+            public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int width, int height) {
+                if (studioMediaPlayer != null) {
+                    adjustVideoTextureAspect(studioMediaPlayer.getVideoWidth(), studioMediaPlayer.getVideoHeight());
+                }
+            }
 
             @Override
             public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
@@ -546,15 +564,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startStudioVideoPlayback() {
-        if (workingWallpaperConfig.videoUri == null) {
+        if (workingWallpaperConfig == null || workingWallpaperConfig.videoUri == null) {
             return;
         }
 
         File f = new File(workingWallpaperConfig.videoUri);
         if (!f.exists()) return;
 
+        if (studioVideoSurface != null && !studioVideoSurface.isValid()) {
+            studioVideoSurface.release();
+            studioVideoSurface = null;
+        }
+
         if (studioVideoSurface == null && studioVideoTextureView.isAvailable()) {
-            studioVideoSurface = new Surface(studioVideoTextureView.getSurfaceTexture());
+            SurfaceTexture st = studioVideoTextureView.getSurfaceTexture();
+            if (st != null) {
+                studioVideoSurface = new Surface(st);
+            }
         }
 
         if (studioVideoSurface == null || !studioVideoSurface.isValid()) {
@@ -566,13 +592,28 @@ public class MainActivity extends AppCompatActivity {
         try {
             studioMediaPlayer = new MediaPlayer();
             studioMediaPlayer.setSurface(studioVideoSurface);
-            studioMediaPlayer.setDataSource(f.getAbsolutePath());
+            try (FileInputStream fis = new FileInputStream(f)) {
+                studioMediaPlayer.setDataSource(fis.getFD(), 0, f.length());
+            }
             studioMediaPlayer.setLooping(true);
             studioMediaPlayer.setVolume(0f, 0f);
             studioMediaPlayer.setOnVideoSizeChangedListener((mp, vw, vh) -> adjustVideoTextureAspect(vw, vh));
-            studioMediaPlayer.setOnPreparedListener(MediaPlayer::start);
+            studioMediaPlayer.setOnPreparedListener(mp -> {
+                mp.start();
+                adjustVideoTextureAspect(mp.getVideoWidth(), mp.getVideoHeight());
+                runOnUiThread(() -> {
+                    MaterialButton btn = findViewById(R.id.btnPlayPauseVideo);
+                    if (btn != null) btn.setText("⏸ Pause");
+                });
+            });
+            studioMediaPlayer.setOnErrorListener((mp, what, extra) -> {
+                android.util.Log.e("DayDrift", "studioMediaPlayer error: " + what + ", " + extra);
+                stopStudioVideoPlayback();
+                return true;
+            });
             studioMediaPlayer.prepareAsync();
         } catch (Exception e) {
+            android.util.Log.e("DayDrift", "startStudioVideoPlayback failed", e);
             stopStudioVideoPlayback();
         }
     }
@@ -592,8 +633,10 @@ public class MainActivity extends AppCompatActivity {
 
         if (videoAspect > viewAspect) {
             scaleX = videoAspect / viewAspect;
+            scaleY = 1.0f;
         } else {
-            scaleY = viewAspect / viewAspect;
+            scaleX = 1.0f;
+            scaleY = viewAspect / videoAspect;
         }
 
         matrix.setScale(scaleX, scaleY, viewWidth / 2.0f, viewHeight / 2.0f);
