@@ -25,10 +25,13 @@ import okhttp3.ResponseBody;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 public class UpdateManager {
@@ -107,9 +110,10 @@ public class UpdateManager {
                     String releaseName = json.optString("name", tagName);
                     String releaseNotes = json.optString("body", "Bug fixes and performance improvements.");
 
-                    // Find APK asset (both API url for private repo asset stream, and public browser url)
+                    // Find APK asset (both API url for private repo asset stream, and direct public CDN browser url)
                     String apkDownloadUrl = null;
                     String apkAssetApiUrl = null;
+                    long assetSize = 0;
                     JSONArray assets = json.optJSONArray("assets");
                     if (assets != null) {
                         for (int i = 0; i < assets.length(); i++) {
@@ -118,17 +122,22 @@ public class UpdateManager {
                             if (assetName.endsWith(".apk")) {
                                 apkAssetApiUrl = asset.optString("url", null);
                                 apkDownloadUrl = asset.optString("browser_download_url", null);
+                                assetSize = asset.optLong("size", 0);
                                 break;
                             }
                         }
                     }
 
-                    // For private repos, the API asset url responds to octet-stream with signed 302 S3 redirect
-                    final String finalApkUrl = (apkAssetApiUrl != null && !apkAssetApiUrl.isEmpty()) ? apkAssetApiUrl : apkDownloadUrl;
+                    // Prefer direct high-speed CDN release URL (Fastly global edge cache)
+                    // If unavailable, fall back to asset API URL for private repo
+                    final String finalApkUrl = (apkDownloadUrl != null && !apkDownloadUrl.isEmpty())
+                            ? apkDownloadUrl
+                            : apkAssetApiUrl;
+                    final long finalAssetSize = assetSize;
                     String localVersion = getLocalVersionName(activity);
 
                     if (isNewerVersion(tagName, localVersion) && finalApkUrl != null) {
-                        mainHandler.post(() -> showUpdateDialog(activity, releaseName, tagName, releaseNotes, finalApkUrl));
+                        mainHandler.post(() -> showUpdateDialog(activity, releaseName, tagName, releaseNotes, finalApkUrl, finalAssetSize));
                     } else if (showFeedbackWhenLatest) {
                         mainHandler.post(() -> Toast.makeText(activity, "DayDrift is already up to date (v" + localVersion + ")", Toast.LENGTH_SHORT).show());
                     }
@@ -170,35 +179,40 @@ public class UpdateManager {
                 .show();
     }
 
-    private void showUpdateDialog(Activity activity, String releaseName, String tagName, String releaseNotes, String apkUrl) {
+    private void showUpdateDialog(Activity activity, String releaseName, String tagName, String releaseNotes, String apkUrl, long expectedSize) {
         if (activity.isFinishing() || activity.isDestroyed()) return;
 
+        double mb = expectedSize > 0 ? (expectedSize / (1024.0 * 1024.0)) : 6.3;
+        String sizeInfo = String.format(Locale.getDefault(), " (%.1f MB)", mb);
+
         new AlertDialog.Builder(activity, R.style.Theme_DayDrift)
-                .setTitle("🚀 Update Available: " + (releaseName.isEmpty() ? tagName : releaseName))
+                .setTitle("🚀 Update Available: " + (releaseName.isEmpty() ? tagName : releaseName) + sizeInfo)
                 .setMessage("What's New:\n\n" + (releaseNotes.trim().isEmpty() ? "Latest stability and UI enhancements." : releaseNotes))
-                .setPositiveButton("Download & Install", (dialog, which) -> downloadAndInstallApk(activity, apkUrl, tagName))
+                .setPositiveButton("Download & Install", (dialog, which) -> downloadAndInstallApk(activity, apkUrl, tagName, expectedSize))
                 .setNegativeButton("Later", (dialog, which) -> dialog.dismiss())
                 .setCancelable(true)
                 .show();
     }
 
-    private void downloadAndInstallApk(Activity activity, String apkUrl, String tagName) {
+    private void downloadAndInstallApk(Activity activity, String apkUrl, String tagName, long expectedSize) {
         ProgressDialog progress = new ProgressDialog(activity);
         progress.setTitle("Downloading DayDrift");
-        progress.setMessage("Fetching latest release from GitHub...");
+        progress.setMessage("Connecting to high-speed CDN...");
         progress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
         progress.setMax(100);
         progress.setCancelable(false);
         progress.show();
 
-        String token = getGithubToken(activity);
         Request.Builder reqBuilder = new Request.Builder()
                 .url(apkUrl)
-                .header("User-Agent", "DayDrift-Android-App")
-                .header("Accept", "application/octet-stream");
+                .header("User-Agent", "DayDrift-Android-App");
 
-        if (token != null && !token.isEmpty()) {
+        // Only send Authorization if downloading through the api.github.com endpoint
+        // (For public CDN downloads, omitting Authorization allows Fastly edge caches to serve at maximum bandwidth)
+        String token = getGithubToken(activity);
+        if (token != null && !token.isEmpty() && apkUrl.contains("api.github.com")) {
             reqBuilder.header("Authorization", "Bearer " + token);
+            reqBuilder.header("Accept", "application/octet-stream");
         }
 
         Request request = reqBuilder.build();
@@ -226,27 +240,60 @@ public class UpdateManager {
                 if (body == null) return;
 
                 long contentLength = body.contentLength();
+                if (contentLength <= 0 && expectedSize > 0) {
+                    contentLength = expectedSize;
+                }
+
                 File destDir = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
                 if (destDir == null) destDir = activity.getCacheDir();
                 File apkFile = new File(destDir, "DayDrift-" + tagName + ".apk");
 
-                try (InputStream is = body.byteStream();
-                     FileOutputStream fos = new FileOutputStream(apkFile)) {
+                try (InputStream rawIs = body.byteStream();
+                     BufferedInputStream bis = new BufferedInputStream(rawIs, 65536);
+                     FileOutputStream fos = new FileOutputStream(apkFile);
+                     BufferedOutputStream bos = new BufferedOutputStream(fos, 65536)) {
 
-                    byte[] buffer = new byte[8192];
+                    byte[] buffer = new byte[65536]; // 64 KB high-throughput buffer
                     long totalBytesRead = 0;
                     int bytesRead;
 
-                    while ((bytesRead = is.read(buffer)) != -1) {
-                        fos.write(buffer, 0, bytesRead);
+                    long lastUiUpdateTime = 0;
+                    int lastReportedPercent = -1;
+                    long startTime = System.currentTimeMillis();
+
+                    while ((bytesRead = bis.read(buffer)) != -1) {
+                        bos.write(buffer, 0, bytesRead);
                         totalBytesRead += bytesRead;
 
-                        if (contentLength > 0) {
-                            final int progressPercent = (int) ((totalBytesRead * 100) / contentLength);
-                            mainHandler.post(() -> progress.setProgress(progressPercent));
+                        long now = System.currentTimeMillis();
+                        // Update UI on percentage change or every 100ms to eliminate UI thread contention
+                        if (now - lastUiUpdateTime > 100 || (contentLength > 0 && totalBytesRead == contentLength)) {
+                            lastUiUpdateTime = now;
+                            final long currentRead = totalBytesRead;
+                            final long totalLen = contentLength;
+                            final int percent = totalLen > 0 ? (int) ((currentRead * 100) / totalLen) : -1;
+
+                            double elapsedSec = Math.max(0.1, (now - startTime) / 1000.0);
+                            double speedMBs = (currentRead / (1024.0 * 1024.0)) / elapsedSec;
+                            double currentMB = currentRead / (1024.0 * 1024.0);
+                            double totalMB = totalLen > 0 ? (totalLen / (1024.0 * 1024.0)) : 0;
+
+                            if (percent != lastReportedPercent) {
+                                lastReportedPercent = percent;
+                                mainHandler.post(() -> {
+                                    if (progress.isShowing()) {
+                                        if (percent >= 0) {
+                                            progress.setProgress(percent);
+                                            progress.setMessage(String.format(Locale.getDefault(), "%.1f MB / %.1f MB (%.1f MB/s)", currentMB, totalMB, speedMBs));
+                                        } else {
+                                            progress.setMessage(String.format(Locale.getDefault(), "%.1f MB downloaded (%.1f MB/s)", currentMB, speedMBs));
+                                        }
+                                    }
+                                });
+                            }
                         }
                     }
-                    fos.flush();
+                    bos.flush();
 
                     mainHandler.post(() -> {
                         if (progress.isShowing()) progress.dismiss();
