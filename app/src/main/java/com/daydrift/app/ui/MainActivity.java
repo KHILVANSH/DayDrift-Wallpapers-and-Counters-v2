@@ -255,8 +255,14 @@ public class MainActivity extends AppCompatActivity {
         tabStudio.setOnClickListener(v -> switchTab(false));
 
         // GitHub In-App Auto Update
-        findViewById(R.id.btnCheckUpdates).setOnClickListener(v -> {
+        View btnUpdates = findViewById(R.id.btnCheckUpdates);
+        btnUpdates.setOnClickListener(v -> {
             new com.daydrift.app.data.UpdateManager().checkForUpdates(MainActivity.this, true);
+        });
+        btnUpdates.setOnLongClickListener(v -> {
+            new com.daydrift.app.data.UpdateManager().showPatPromptDialog(MainActivity.this, "GitHub Personal Access Token (PAT)",
+                    "Configure your GitHub PAT for private repository auto-updates and release downloads:");
+            return true;
         });
         // Background update check on startup
         new com.daydrift.app.data.UpdateManager().checkForUpdates(MainActivity.this, false);
