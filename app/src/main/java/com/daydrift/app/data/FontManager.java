@@ -17,14 +17,22 @@ public class FontManager {
         public final String systemFamily;
         public final int style; // Typeface.NORMAL, Typeface.BOLD, etc.
         public final String filePath; // Optional path in /system/fonts/
+        public final int weight; // 100 to 900
+        public final boolean isItalic;
 
         public FontItem(String id, String name, String category, String systemFamily, int style, String filePath) {
+            this(id, name, category, systemFamily, style, filePath, (style & Typeface.BOLD) != 0 ? 700 : 400, (style & Typeface.ITALIC) != 0);
+        }
+
+        public FontItem(String id, String name, String category, String systemFamily, int style, String filePath, int weight, boolean isItalic) {
             this.id = id;
             this.name = name;
             this.category = category;
             this.systemFamily = systemFamily;
             this.style = style;
             this.filePath = filePath;
+            this.weight = weight;
+            this.isItalic = isItalic;
         }
     }
 
@@ -128,7 +136,14 @@ public class FontManager {
     }
 
     private void addFont(String id, String name, String category, String family, int style) {
-        allFonts.add(new FontItem(id, name, category, family, style, null));
+        int weight = (style & Typeface.BOLD) != 0 ? 700 : 400;
+        boolean italic = (style & Typeface.ITALIC) != 0;
+        allFonts.add(new FontItem(id, name, category, family, style, null, weight, italic));
+    }
+
+    private void addWeightedFont(String id, String name, String category, String family, int weight, boolean italic) {
+        int style = (weight >= 600 ? Typeface.BOLD : Typeface.NORMAL) | (italic ? Typeface.ITALIC : Typeface.NORMAL);
+        allFonts.add(new FontItem(id, name, category, family, style, null, weight, italic));
     }
 
     private void scanSystemFontsDirectory() {
@@ -139,25 +154,33 @@ public class FontManager {
                 if (files != null) {
                     for (File file : files) {
                         String fname = file.getName();
-                        // Filter for interesting display fonts
-                        if (fname.contains("Dancing") || fname.contains("Cutive") || fname.contains("ComingSoon")
-                            || fname.contains("Carrois") || fname.contains("Droid") || fname.contains("Clock")
-                            || fname.contains("NotoSerif") || fname.contains("NotoSans")) {
-                            
-                            String cleanName = fname.replace(".ttf", "").replace(".otf", "").replace("-", " ");
-                            String id = "sys-" + fname;
-                            // Avoid duplicates
-                            boolean exists = false;
-                            for (FontItem item : allFonts) {
-                                if (item.id.equals(id)) {
-                                    exists = true;
-                                    break;
+                        // Filter for Latin display, serif, sans, and monospace fonts
+                        if (fname.contains("Emoji") || fname.contains("Color")) continue;
+                        if (fname.startsWith("NotoSans") && !fname.contains("Latin") && !fname.equals("NotoSans-Regular.ttf") && fname.length() > 25) continue;
+                        if (fname.startsWith("NotoSerif") && !fname.contains("Latin") && !fname.equals("NotoSerif-Regular.ttf") && fname.length() > 25) continue;
+
+                        try {
+                            Typeface testTf = Typeface.createFromFile(file);
+                            if (testTf != null) {
+                                String cleanName = fname.replace(".ttf", "").replace(".otf", "").replace("-", " ");
+                                String id = "sys-" + fname;
+                                boolean exists = false;
+                                for (FontItem item : allFonts) {
+                                    if (item.id.equals(id)) {
+                                        exists = true;
+                                        break;
+                                    }
+                                }
+                                if (!exists) {
+                                    String cat = "System Device Font";
+                                    if (fname.contains("Mono")) cat = "Monospace";
+                                    else if (fname.contains("Serif")) cat = "Serif";
+                                    else if (fname.contains("Script") || fname.contains("Casual")) cat = "Script";
+                                    else if (fname.contains("Clock")) cat = "Digital Clock";
+                                    allFonts.add(new FontItem(id, cleanName, cat, "sans-serif", Typeface.NORMAL, file.getAbsolutePath(), 400, false));
                                 }
                             }
-                            if (!exists) {
-                                allFonts.add(new FontItem(id, cleanName, "Device System Font", "sans-serif", Typeface.NORMAL, file.getAbsolutePath()));
-                            }
-                        }
+                        } catch (Exception ignored) {}
                     }
                 }
             }
@@ -200,6 +223,12 @@ public class FontManager {
                 if (item.filePath != null) {
                     try {
                         tf = Typeface.createFromFile(item.filePath);
+                    } catch (Exception ignored) {}
+                }
+                if (tf == null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P && item.weight > 0) {
+                    try {
+                        Typeface base = Typeface.create(item.systemFamily, Typeface.NORMAL);
+                        tf = Typeface.create(base, item.weight, item.isItalic);
                     } catch (Exception ignored) {}
                 }
                 if (tf == null) {

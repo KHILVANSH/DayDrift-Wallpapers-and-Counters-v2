@@ -18,6 +18,7 @@ public class WallpaperConfig implements Serializable {
     public String videoUri;
     public int dimPercent; // 0 - 80%
     public int blurRadius; // 0 - 25
+    public boolean restartVideoOnScreenOn = true;
 
     public WallpaperConfig() {
         this.backgroundType = TYPE_GRADIENT;
@@ -27,6 +28,7 @@ public class WallpaperConfig implements Serializable {
         this.videoUri = null;
         this.dimPercent = 20;
         this.blurRadius = 0;
+        this.restartVideoOnScreenOn = true;
     }
 
     public JSONObject toJsonObject() {
@@ -39,6 +41,7 @@ public class WallpaperConfig implements Serializable {
             json.put("videoUri", videoUri);
             json.put("dimPercent", dimPercent);
             json.put("blurRadius", blurRadius);
+            json.put("restartVideoOnScreenOn", restartVideoOnScreenOn);
         } catch (JSONException ignored) {}
         return json;
     }
@@ -53,6 +56,7 @@ public class WallpaperConfig implements Serializable {
         config.videoUri = json.isNull("videoUri") ? null : json.optString("videoUri", null);
         config.dimPercent = json.optInt("dimPercent", 20);
         config.blurRadius = json.optInt("blurRadius", 0);
+        config.restartVideoOnScreenOn = json.optBoolean("restartVideoOnScreenOn", true);
         return config;
     }
 }

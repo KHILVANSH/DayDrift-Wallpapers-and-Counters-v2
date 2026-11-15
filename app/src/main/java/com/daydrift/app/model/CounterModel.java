@@ -14,6 +14,17 @@ public class CounterModel implements Serializable {
     public static final String STYLE_PILL = "PILL";
     public static final String STYLE_BLOCK = "BLOCK";
     public static final String STYLE_NEON = "NEON";
+    public static final String STYLE_FLIP = "FLIP";
+    public static final String STYLE_EDITORIAL = "EDITORIAL";
+    public static final String STYLE_BENTO = "BENTO";
+    public static final String STYLE_CYBER_HUD = "CYBER_HUD";
+    public static final String STYLE_FLOAT_TAG = "FLOAT_TAG";
+
+    public static final String ANIM_ROLL = "ROLL";
+    public static final String ANIM_FLIP = "FLIP";
+    public static final String ANIM_FADE_SCALE = "FADE_SCALE";
+    public static final String ANIM_SLIDE_HORIZ = "SLIDE_HORIZ";
+    public static final String ANIM_NONE = "NONE";
 
     public String id;
     public String title;
@@ -29,6 +40,7 @@ public class CounterModel implements Serializable {
     public GradientConfig titleGradient;
 
     public String layoutStyle;
+    public String animationStyle;
     public String fontFamily;
 
     public float xOffset; // 0.0 - 1.0, center is 0.5
@@ -55,6 +67,7 @@ public class CounterModel implements Serializable {
         this.titleGradient = new GradientConfig(false, GradientConfig.TYPE_LINEAR, 90, Color.WHITE, Color.LTGRAY);
 
         this.layoutStyle = STYLE_CLASSIC;
+        this.animationStyle = ANIM_ROLL;
         this.fontFamily = "DEFAULT";
 
         this.xOffset = 0.5f;
@@ -81,6 +94,7 @@ public class CounterModel implements Serializable {
             json.put("titleColor", titleColor);
             json.put("titleGradient", titleGradient != null ? titleGradient.toJsonObject() : null);
             json.put("layoutStyle", layoutStyle);
+            json.put("animationStyle", animationStyle);
             json.put("fontFamily", fontFamily);
             json.put("xOffset", (double) xOffset);
             json.put("yOffset", (double) yOffset);
@@ -107,6 +121,7 @@ public class CounterModel implements Serializable {
         model.titleColor = json.optInt("titleColor", Color.LTGRAY);
         model.titleGradient = GradientConfig.fromJsonObject(json.optJSONObject("titleGradient"));
         model.layoutStyle = json.optString("layoutStyle", STYLE_CLASSIC);
+        model.animationStyle = json.optString("animationStyle", ANIM_ROLL);
         model.fontFamily = json.optString("fontFamily", "DEFAULT");
         model.xOffset = (float) json.optDouble("xOffset", 0.5);
         model.yOffset = (float) json.optDouble("yOffset", 0.5);

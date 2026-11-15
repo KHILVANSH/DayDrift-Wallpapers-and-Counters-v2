@@ -5,6 +5,7 @@ import android.graphics.Canvas;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
+import android.util.DisplayMetrics;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
@@ -142,7 +143,23 @@ public class LiveWallpaperPreviewView extends View {
         int h = getHeight();
         if (w <= 0 || h <= 0) return;
 
-        renderer.render(canvas, w, h, wallpaperConfig, counterModel, System.currentTimeMillis());
+        DisplayMetrics dm = getContext().getResources().getDisplayMetrics();
+        int screenW = Math.min(dm.widthPixels, dm.heightPixels);
+        int screenH = Math.max(dm.widthPixels, dm.heightPixels);
+
+        // If this preview is displayed in a smaller frame (such as the studio phone mockup),
+        // render using the real device wallpaper dimensions and scale down uniformly so that
+        // all font sizes, margins, alignments and aspect ratios match the real wallpaper exactly.
+        if (w < screenW || h < screenH) {
+            float scaleX = (float) w / (float) screenW;
+            float scaleY = (float) h / (float) screenH;
+            canvas.save();
+            canvas.scale(scaleX, scaleY);
+            renderer.render(canvas, screenW, screenH, wallpaperConfig, counterModel, System.currentTimeMillis());
+            canvas.restore();
+        } else {
+            renderer.render(canvas, w, h, wallpaperConfig, counterModel, System.currentTimeMillis());
+        }
     }
 
     @Override

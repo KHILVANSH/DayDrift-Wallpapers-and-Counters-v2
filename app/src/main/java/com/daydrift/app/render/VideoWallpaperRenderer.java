@@ -424,6 +424,17 @@ public class VideoWallpaperRenderer {
         }
     }
 
+    public void restartToBeginning() {
+        if (mediaPlayer != null && isPrepared) {
+            try {
+                mediaPlayer.seekTo(0);
+                if (!isPausedRequested && !mediaPlayer.isPlaying()) {
+                    mediaPlayer.start();
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+
     public void releaseMediaPlayer() {
         isPrepared = false;
         if (mediaPlayer != null) {

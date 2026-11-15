@@ -213,7 +213,7 @@ public class DayDriftWallpaperRenderer {
 
         switch (style) {
             case CounterModel.STYLE_MINIMAL:
-                renderMinimal(canvas, counter, days, prevDays, hours, minutes, seconds, rawProgress, isFinished);
+                renderMinimal(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
                 break;
             case CounterModel.STYLE_RING:
                 renderRing(canvas, counter, days, hours, minutes, seconds, remainingMillis, isFinished);
@@ -222,13 +222,28 @@ public class DayDriftWallpaperRenderer {
                 renderCard(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
                 break;
             case CounterModel.STYLE_PILL:
-                renderPill(canvas, counter, days, hours, minutes, seconds, prevSeconds, rawProgress, isFinished);
+                renderPill(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
                 break;
             case CounterModel.STYLE_BLOCK:
                 renderBlock(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
                 break;
             case CounterModel.STYLE_NEON:
                 renderNeon(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
+                break;
+            case CounterModel.STYLE_FLIP:
+                renderFlip(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
+                break;
+            case CounterModel.STYLE_EDITORIAL:
+                renderEditorial(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
+                break;
+            case CounterModel.STYLE_BENTO:
+                renderBento(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
+                break;
+            case CounterModel.STYLE_CYBER_HUD:
+                renderCyberHud(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
+                break;
+            case CounterModel.STYLE_FLOAT_TAG:
+                renderFloatTag(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
                 break;
             case CounterModel.STYLE_CLASSIC:
             default:
@@ -240,24 +255,33 @@ public class DayDriftWallpaperRenderer {
     }
 
     private void renderClassic(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
-        float y = -30;
-
         boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+        boolean hasTags = counter.showTimeTags && !done;
+
+        // Calculate total vertical height to keep stack perfectly centered around y=0
+        float totalH = spToPx(46); // Count height
+        if (hasEmoji) totalH += spToPx(38) + spToPx(8);
+        if (hasTitle) totalH += spToPx(24) + spToPx(10);
+        if (hasTags) totalH += spToPx(16) + spToPx(12);
+
+        float curY = -totalH / 2.0f;
+
         if (hasEmoji) {
-            canvas.drawText(counter.emoji, 0, y, emojiPaint);
-            y += spToPx(34);
+            canvas.drawText(counter.emoji, 0, curY + spToPx(32), emojiPaint);
+            curY += spToPx(38) + spToPx(8);
         }
 
-        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
         if (hasTitle) {
             titlePaint.setTextSize(spToPx(20));
-            drawShaderText(canvas, counter.title, 0, y, titlePaint, counter.titleGradient);
-            y += spToPx(44);
+            drawShaderText(canvas, counter.title, 0, curY + spToPx(18), titlePaint, counter.titleGradient);
+            curY += spToPx(24) + spToPx(10);
         }
 
+        float countY = curY + spToPx(38);
         countPaint.setTextSize(spToPx(46));
         if (done) {
-            drawShaderText(canvas, "CELEBRATING!", 0, y, countPaint, counter.countGradient);
+            drawShaderText(canvas, "CELEBRATING!", 0, countY, countPaint, counter.countGradient);
         } else {
             String dStr = String.format(Locale.getDefault(), "%02d", d);
             String prevDStr = String.format(Locale.getDefault(), "%02d", prevD);
@@ -274,70 +298,73 @@ public class DayDriftWallpaperRenderer {
             float totalW = (slotW * 4) + (sepW * 3);
             float curX = -totalW / 2.0f;
 
-            // Days
-            drawRollingDigits(canvas, dStr, prevDStr, curX + slotW / 2.0f, y, countPaint, counter.countGradient, rawProgress, spToPx(22));
+            drawRollingDigits(canvas, counter, dStr, prevDStr, curX + slotW / 2.0f, countY, countPaint, counter.countGradient, rawProgress, spToPx(22));
             curX += slotW;
-            // Colon
-            drawShaderText(canvas, sep, curX + sepW / 2.0f, y, countPaint, counter.countGradient);
+            drawShaderText(canvas, sep, curX + sepW / 2.0f, countY, countPaint, counter.countGradient);
             curX += sepW;
-            // Hours
-            drawRollingDigits(canvas, hStr, prevHStr, curX + slotW / 2.0f, y, countPaint, counter.countGradient, rawProgress, spToPx(22));
+            drawRollingDigits(canvas, counter, hStr, prevHStr, curX + slotW / 2.0f, countY, countPaint, counter.countGradient, rawProgress, spToPx(22));
             curX += slotW;
-            // Colon
-            drawShaderText(canvas, sep, curX + sepW / 2.0f, y, countPaint, counter.countGradient);
+            drawShaderText(canvas, sep, curX + sepW / 2.0f, countY, countPaint, counter.countGradient);
             curX += sepW;
-            // Minutes
-            drawRollingDigits(canvas, mStr, prevMStr, curX + slotW / 2.0f, y, countPaint, counter.countGradient, rawProgress, spToPx(22));
+            drawRollingDigits(canvas, counter, mStr, prevMStr, curX + slotW / 2.0f, countY, countPaint, counter.countGradient, rawProgress, spToPx(22));
             curX += slotW;
-            // Colon
-            drawShaderText(canvas, sep, curX + sepW / 2.0f, y, countPaint, counter.countGradient);
+            drawShaderText(canvas, sep, curX + sepW / 2.0f, countY, countPaint, counter.countGradient);
             curX += sepW;
-            // Seconds (Always smoothly rolls every second!)
-            drawRollingDigits(canvas, sStr, prevSStr, curX + slotW / 2.0f, y, countPaint, counter.countGradient, rawProgress, spToPx(22));
+            drawRollingDigits(canvas, counter, sStr, prevSStr, curX + slotW / 2.0f, countY, countPaint, counter.countGradient, rawProgress, spToPx(22));
         }
 
-        if (counter.showTimeTags && !done) {
-            y += spToPx(24);
+        if (hasTags) {
+            float tagY = countY + spToPx(24);
             tagPaint.setTextSize(spToPx(12));
-            canvas.drawText("DAYS       HOURS       MINS       SECS", 0, y, tagPaint);
+            canvas.drawText("DAYS       HOURS       MINS       SECS", 0, tagY, tagPaint);
         }
     }
 
-    private void renderMinimal(Canvas canvas, CounterModel counter, long d, long prevD, long h, long m, long s, float rawProgress, boolean done) {
-        float y = -20;
+    private void renderMinimal(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
         boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float totalH = spToPx(62) + spToPx(24); // Number + Tag
+        if (hasEmoji) totalH += spToPx(38) + spToPx(10);
+        if (hasTitle) totalH += spToPx(22) + spToPx(12);
+
+        float curY = -totalH / 2.0f;
+
         if (hasEmoji) {
-            canvas.drawText(counter.emoji, 0, y, emojiPaint);
-            y += spToPx(36);
+            canvas.drawText(counter.emoji, 0, curY + spToPx(32), emojiPaint);
+            curY += spToPx(38) + spToPx(10);
         }
 
-        countPaint.setTextSize(spToPx(62));
+        if (hasTitle) {
+            titlePaint.setTextSize(spToPx(18));
+            drawShaderText(canvas, counter.title.toUpperCase(Locale.getDefault()), 0, curY + spToPx(16), titlePaint, counter.titleGradient);
+            curY += spToPx(22) + spToPx(12);
+        }
+
+        countPaint.setTextSize(spToPx(64));
+        float countY = curY + spToPx(50);
         if (done) {
-            drawShaderText(canvas, "DONE", 0, y, countPaint, counter.countGradient);
+            drawShaderText(canvas, "DONE", 0, countY, countPaint, counter.countGradient);
         } else {
             String dStr = String.valueOf(d);
             String prevDStr = String.valueOf(prevD);
-            drawRollingDigits(canvas, dStr, prevDStr, 0, y, countPaint, counter.countGradient, rawProgress, spToPx(26));
-            y += spToPx(24);
+            drawRollingDigits(canvas, counter, dStr, prevDStr, 0, countY, countPaint, counter.countGradient, rawProgress, spToPx(26));
             tagPaint.setTextSize(spToPx(14));
-            canvas.drawText("DAYS REMAINING", 0, y, tagPaint);
-        }
-
-        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
-        if (hasTitle) {
-            y += spToPx(30);
-            titlePaint.setTextSize(spToPx(18));
-            drawShaderText(canvas, counter.title.toUpperCase(Locale.getDefault()), 0, y, titlePaint, counter.titleGradient);
+            canvas.drawText("DAYS REMAINING", 0, countY + spToPx(24), tagPaint);
         }
     }
 
     private void renderRing(Canvas canvas, CounterModel counter, long d, long h, long m, long s, long remaining, boolean done) {
-        float radius = spToPx(85);
-        rectF.set(-radius, -radius - 20, radius, radius - 20);
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float radius = spToPx(82);
+        float ringCenterY = hasTitle ? -spToPx(15) : 0;
+        rectF.set(-radius, ringCenterY - radius, radius, ringCenterY + radius);
 
         strokePaint.setStrokeWidth(spToPx(7));
         strokePaint.setColor(Color.argb(50, 255, 255, 255));
-        canvas.drawCircle(0, -20, radius, strokePaint);
+        canvas.drawCircle(0, ringCenterY, radius, strokePaint);
 
         // Continuous sub-second progress for fluid sweep
         float progress = Math.min(360f, Math.max(5f, (remaining % (24 * 3600 * 1000L)) / (24 * 3600 * 1000f) * 360f));
@@ -348,49 +375,64 @@ public class DayDriftWallpaperRenderer {
         // Glowing indicator tip at arc head
         double tipAngle = Math.toRadians(-90 + progress);
         float tipX = (float) (Math.cos(tipAngle) * radius);
-        float tipY = (float) (Math.sin(tipAngle) * radius - 20);
+        float tipY = (float) (Math.sin(tipAngle) * radius + ringCenterY);
         shapePaint.setColor(counter.countColor);
         canvas.drawCircle(tipX, tipY, spToPx(5), shapePaint);
 
-        countPaint.setTextSize(spToPx(44));
-        drawShaderText(canvas, done ? "0" : String.valueOf(d), 0, -26, countPaint, counter.countGradient);
+        if (hasEmoji) {
+            emojiPaint.setTextSize(spToPx(28));
+            canvas.drawText(counter.emoji, 0, ringCenterY - spToPx(26), emojiPaint);
+            countPaint.setTextSize(spToPx(38));
+            drawShaderText(canvas, done ? "0" : String.valueOf(d), 0, ringCenterY + spToPx(12), countPaint, counter.countGradient);
+            tagPaint.setTextSize(spToPx(11));
+            canvas.drawText("DAYS", 0, ringCenterY + spToPx(28), tagPaint);
+        } else {
+            countPaint.setTextSize(spToPx(44));
+            drawShaderText(canvas, done ? "0" : String.valueOf(d), 0, ringCenterY - spToPx(4), countPaint, counter.countGradient);
+            tagPaint.setTextSize(spToPx(12));
+            canvas.drawText("DAYS", 0, ringCenterY + spToPx(18), tagPaint);
+        }
 
-        tagPaint.setTextSize(spToPx(12));
-        canvas.drawText("DAYS", 0, -5, tagPaint);
-
-        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
         if (hasTitle) {
             titlePaint.setTextSize(spToPx(18));
-            drawShaderText(canvas, counter.title, 0, radius + 25, titlePaint, counter.titleGradient);
+            drawShaderText(canvas, counter.title, 0, ringCenterY + radius + spToPx(26), titlePaint, counter.titleGradient);
         }
     }
 
     private void renderCard(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
-        float cardW = spToPx(280);
-        float cardH = spToPx(140);
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float cardW = spToPx(290);
+        float cardH = spToPx(hasEmoji && hasTitle ? 165 : (hasEmoji || hasTitle ? 140 : 110));
         rectF.set(-cardW / 2, -cardH / 2, cardW / 2, cardH / 2);
 
         shapePaint.reset();
-        shapePaint.setColor(Color.argb(140, 15, 20, 32));
-        canvas.drawRoundRect(rectF, spToPx(24), spToPx(24), shapePaint);
+        shapePaint.setColor(Color.argb(145, 16, 22, 36));
+        canvas.drawRoundRect(rectF, spToPx(22), spToPx(22), shapePaint);
 
         strokePaint.setStrokeWidth(spToPx(1.5f));
         strokePaint.setColor(Color.argb(80, 255, 255, 255));
-        canvas.drawRoundRect(rectF, spToPx(24), spToPx(24), strokePaint);
+        canvas.drawRoundRect(rectF, spToPx(22), spToPx(22), strokePaint);
 
-        float y = -cardH / 2 + spToPx(38);
-        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+        float curY = -cardH / 2.0f;
+        if (hasEmoji) {
+            emojiPaint.setTextSize(spToPx(28));
+            canvas.drawText(counter.emoji, 0, curY + spToPx(30), emojiPaint);
+            curY += spToPx(34);
+        }
         if (hasTitle) {
             titlePaint.setTextSize(spToPx(16));
-            drawShaderText(canvas, counter.title, 0, y, titlePaint, counter.titleGradient);
-            y += spToPx(44);
-        } else {
-            y += spToPx(24);
+            drawShaderText(canvas, counter.title, 0, curY + spToPx(22), titlePaint, counter.titleGradient);
+            curY += spToPx(28);
+        } else if (!hasEmoji) {
+            curY += spToPx(18);
         }
 
-        countPaint.setTextSize(spToPx(34));
+        float countY = curY + spToPx(36);
+        countPaint.setTextSize(spToPx(32));
         if (done) {
-            drawShaderText(canvas, "CELEBRATING!", 0, y, countPaint, counter.countGradient);
+            drawShaderText(canvas, "CELEBRATING!", 0, countY, countPaint, counter.countGradient);
         } else {
             String prefix = String.format(Locale.getDefault(), "%dd  %02dh  %02dm  ", d, h, m);
             String sStr = String.format(Locale.getDefault(), "%02ds", s);
@@ -401,28 +443,39 @@ public class DayDriftWallpaperRenderer {
             float totalW = prefixW + sW;
             float startX = -totalW / 2.0f;
 
-            drawShaderText(canvas, prefix, startX + prefixW / 2.0f, y, countPaint, counter.countGradient);
-            drawRollingDigits(canvas, sStr, prevSStr, startX + prefixW + sW / 2.0f, y, countPaint, counter.countGradient, rawProgress, spToPx(18));
+            drawShaderText(canvas, prefix, startX + prefixW / 2.0f, countY, countPaint, counter.countGradient);
+            drawRollingDigits(canvas, counter, sStr, prevSStr, startX + prefixW + sW / 2.0f, countY, countPaint, counter.countGradient, rawProgress, spToPx(18));
         }
     }
 
-    private void renderPill(Canvas canvas, CounterModel counter, long d, long h, long m, long s, long prevS, float rawProgress, boolean done) {
-        float pillW = spToPx(270);
+    private void renderPill(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float pillW = spToPx(280);
         float pillH = spToPx(56);
-        rectF.set(-pillW / 2, -pillH / 2, pillW / 2, pillH / 2);
+        float pillY = hasTitle ? spToPx(16) : 0;
+
+        if (hasTitle) {
+            titlePaint.setTextSize(spToPx(18));
+            drawShaderText(canvas, counter.title, 0, pillY - pillH / 2.0f - spToPx(14), titlePaint, counter.titleGradient);
+        }
+
+        rectF.set(-pillW / 2, pillY - pillH / 2, pillW / 2, pillY + pillH / 2);
 
         shapePaint.reset();
-        shapePaint.setColor(Color.argb(180, 20, 28, 45));
+        shapePaint.setColor(Color.argb(175, 18, 25, 42));
         canvas.drawRoundRect(rectF, pillH / 2, pillH / 2, shapePaint);
 
         strokePaint.setStrokeWidth(spToPx(1.5f));
         strokePaint.setColor(counter.countColor);
         canvas.drawRoundRect(rectF, pillH / 2, pillH / 2, strokePaint);
 
-        String emoji = (counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty()) ? counter.emoji + "  " : "";
-        countPaint.setTextSize(spToPx(21));
+        String emoji = hasEmoji ? counter.emoji + "  " : "";
+        countPaint.setTextSize(spToPx(20));
+        float textY = pillY + spToPx(7);
         if (done) {
-            drawShaderText(canvas, emoji + "CELEBRATING!", 0, spToPx(7), countPaint, counter.countGradient);
+            drawShaderText(canvas, emoji + "CELEBRATING!", 0, textY, countPaint, counter.countGradient);
         } else {
             String prefix = String.format(Locale.getDefault(), "%s%dd %02d:%02d:", emoji, d, h, m);
             String sStr = String.format(Locale.getDefault(), "%02d", s);
@@ -433,57 +486,69 @@ public class DayDriftWallpaperRenderer {
             float totalW = prefixW + sW;
             float startX = -totalW / 2.0f;
 
-            drawShaderText(canvas, prefix, startX + prefixW / 2.0f, spToPx(7), countPaint, counter.countGradient);
-            drawRollingDigits(canvas, sStr, prevSStr, startX + prefixW + sW / 2.0f, spToPx(7), countPaint, counter.countGradient, rawProgress, spToPx(14));
+            drawShaderText(canvas, prefix, startX + prefixW / 2.0f, textY, countPaint, counter.countGradient);
+            drawRollingDigits(canvas, counter, sStr, prevSStr, startX + prefixW + sW / 2.0f, textY, countPaint, counter.countGradient, rawProgress, spToPx(14));
         }
     }
 
     private void renderBlock(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
         float boxW = spToPx(56);
-        float boxH = spToPx(64);
-        float gap = spToPx(12);
+        float boxH = spToPx(66);
+        float gap = spToPx(10);
         float totalW = (4 * boxW) + (3 * gap);
         float startX = -totalW / 2;
 
+        float topY = 0;
+        if (hasEmoji) {
+            canvas.drawText(counter.emoji, 0, -boxH / 2 - spToPx(22), emojiPaint);
+        }
+
         long[] vals = {d, h, m, s};
         long[] prevVals = {prevD, prevH, prevM, prevS};
-        String[] tags = {"D", "H", "M", "S"};
+        String[] tags = {"DAYS", "HRS", "MIN", "SEC"};
 
         for (int i = 0; i < 4; i++) {
             float x = startX + i * (boxW + gap);
             rectF.set(x, -boxH / 2, x + boxW, boxH / 2);
 
-            shapePaint.setColor(Color.argb(140, 25, 34, 52));
+            shapePaint.setColor(Color.argb(145, 22, 30, 48));
             canvas.drawRoundRect(rectF, spToPx(14), spToPx(14), shapePaint);
+
+            strokePaint.setStrokeWidth(spToPx(1f));
+            strokePaint.setColor(Color.argb(60, 255, 255, 255));
+            canvas.drawRoundRect(rectF, spToPx(14), spToPx(14), strokePaint);
 
             countPaint.setTextSize(spToPx(26));
             String valStr = String.format(Locale.getDefault(), "%02d", vals[i]);
             String prevValStr = String.format(Locale.getDefault(), "%02d", prevVals[i]);
 
             float cardCenterX = x + boxW / 2.0f;
-            if (i == 3) { // Seconds block always rolls smoothly
-                drawRollingDigits(canvas, valStr, prevValStr, cardCenterX, spToPx(2), countPaint, counter.countGradient, rawProgress, spToPx(16));
-            } else if (prevVals[i] != vals[i]) {
-                drawRollingDigits(canvas, valStr, prevValStr, cardCenterX, spToPx(2), countPaint, counter.countGradient, rawProgress, spToPx(16));
-            } else {
-                drawStationaryDigits(canvas, valStr, cardCenterX, spToPx(2), countPaint, counter.countGradient);
-            }
+            drawRollingDigits(canvas, counter, valStr, prevValStr, cardCenterX, spToPx(2), countPaint, counter.countGradient, rawProgress, spToPx(16));
 
-            tagPaint.setTextSize(spToPx(11));
-            canvas.drawText(tags[i], cardCenterX, spToPx(20), tagPaint);
+            tagPaint.setTextSize(spToPx(10));
+            canvas.drawText(tags[i], cardCenterX, spToPx(22), tagPaint);
         }
 
-        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
         if (hasTitle) {
             titlePaint.setTextSize(spToPx(18));
-            drawShaderText(canvas, counter.title, 0, spToPx(65), titlePaint, counter.titleGradient);
+            drawShaderText(canvas, counter.title, 0, boxH / 2 + spToPx(28), titlePaint, counter.titleGradient);
         }
     }
 
     private void renderNeon(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
         float y = 0;
+        if (hasEmoji) {
+            canvas.drawText(counter.emoji, 0, -spToPx(42), emojiPaint);
+        }
+
         countPaint.setTextSize(spToPx(50));
-        countPaint.setShadowLayer(spToPx(12), 0, 0, counter.countColor);
+        countPaint.setShadowLayer(spToPx(14), 0, 0, counter.countColor);
 
         if (done) {
             drawShaderText(canvas, "CELEBRATING!", 0, y, countPaint, counter.countGradient);
@@ -503,28 +568,324 @@ public class DayDriftWallpaperRenderer {
             float totalW = (slotW * 4) + (sepW * 3);
             float curX = -totalW / 2.0f;
 
-            drawRollingDigits(canvas, dStr, prevDStr, curX + slotW / 2.0f, y, countPaint, counter.countGradient, rawProgress, spToPx(24));
+            drawRollingDigits(canvas, counter, dStr, prevDStr, curX + slotW / 2.0f, y, countPaint, counter.countGradient, rawProgress, spToPx(24));
             curX += slotW;
             drawShaderText(canvas, sep, curX + sepW / 2.0f, y, countPaint, counter.countGradient);
             curX += sepW;
-            drawRollingDigits(canvas, hStr, prevHStr, curX + slotW / 2.0f, y, countPaint, counter.countGradient, rawProgress, spToPx(24));
+            drawRollingDigits(canvas, counter, hStr, prevHStr, curX + slotW / 2.0f, y, countPaint, counter.countGradient, rawProgress, spToPx(24));
             curX += slotW;
             drawShaderText(canvas, sep, curX + sepW / 2.0f, y, countPaint, counter.countGradient);
             curX += sepW;
-            drawRollingDigits(canvas, mStr, prevMStr, curX + slotW / 2.0f, y, countPaint, counter.countGradient, rawProgress, spToPx(24));
+            drawRollingDigits(canvas, counter, mStr, prevMStr, curX + slotW / 2.0f, y, countPaint, counter.countGradient, rawProgress, spToPx(24));
             curX += slotW;
             drawShaderText(canvas, sep, curX + sepW / 2.0f, y, countPaint, counter.countGradient);
             curX += sepW;
-            drawRollingDigits(canvas, sStr, prevSStr, curX + slotW / 2.0f, y, countPaint, counter.countGradient, rawProgress, spToPx(24));
+            drawRollingDigits(canvas, counter, sStr, prevSStr, curX + slotW / 2.0f, y, countPaint, counter.countGradient, rawProgress, spToPx(24));
         }
         countPaint.clearShadowLayer();
 
-        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
         if (hasTitle) {
-            titlePaint.setTextSize(spToPx(20));
-            titlePaint.setShadowLayer(spToPx(8), 0, 0, counter.titleColor);
-            drawShaderText(canvas, counter.title.toUpperCase(Locale.getDefault()), 0, y + spToPx(40), titlePaint, counter.titleGradient);
+            titlePaint.setTextSize(spToPx(19));
+            titlePaint.setShadowLayer(spToPx(10), 0, 0, counter.titleColor);
+            drawShaderText(canvas, counter.title.toUpperCase(Locale.getDefault()), 0, y + spToPx(42), titlePaint, counter.titleGradient);
             titlePaint.clearShadowLayer();
+        }
+    }
+
+    private void renderFlip(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float cardW = spToPx(58);
+        float cardH = spToPx(68);
+        float gap = spToPx(10);
+        float totalW = (4 * cardW) + (3 * gap);
+        float startX = -totalW / 2.0f;
+
+        float curY = 0;
+        if (hasEmoji) {
+            canvas.drawText(counter.emoji, 0, -cardH / 2.0f - spToPx(22), emojiPaint);
+        }
+        if (hasTitle) {
+            titlePaint.setTextSize(spToPx(18));
+            float titleY = hasEmoji ? (-cardH / 2.0f - spToPx(48)) : (-cardH / 2.0f - spToPx(22));
+            drawShaderText(canvas, counter.title, 0, titleY, titlePaint, counter.titleGradient);
+        }
+
+        long[] vals = {d, h, m, s};
+        long[] prevVals = {prevD, prevH, prevM, prevS};
+        String[] tags = {"DAYS", "HOURS", "MINS", "SECS"};
+
+        for (int i = 0; i < 4; i++) {
+            float x = startX + i * (cardW + gap);
+            float cardCenterX = x + cardW / 2.0f;
+
+            // Background flap card
+            rectF.set(x, -cardH / 2.0f, x + cardW, cardH / 2.0f);
+            shapePaint.setColor(Color.argb(225, 20, 25, 36));
+            canvas.drawRoundRect(rectF, spToPx(8), spToPx(8), shapePaint);
+
+            // Border
+            strokePaint.setStrokeWidth(spToPx(1f));
+            strokePaint.setColor(Color.argb(70, 255, 255, 255));
+            canvas.drawRoundRect(rectF, spToPx(8), spToPx(8), strokePaint);
+
+            // Center horizontal split line
+            strokePaint.setColor(Color.argb(160, 10, 14, 20));
+            strokePaint.setStrokeWidth(spToPx(1.5f));
+            canvas.drawLine(x, 0, x + cardW, 0, strokePaint);
+
+            // Lower split highlight
+            strokePaint.setColor(Color.argb(45, 255, 255, 255));
+            strokePaint.setStrokeWidth(spToPx(0.8f));
+            canvas.drawLine(x, spToPx(1f), x + cardW, spToPx(1f), strokePaint);
+
+            // Digits
+            countPaint.setTextSize(spToPx(28));
+            String valStr = String.format(Locale.getDefault(), "%02d", vals[i]);
+            String prevValStr = String.format(Locale.getDefault(), "%02d", prevVals[i]);
+            drawRollingDigits(canvas, counter, valStr, prevValStr, cardCenterX, spToPx(9), countPaint, counter.countGradient, rawProgress, spToPx(18));
+
+            // Tag underneath card
+            tagPaint.setTextSize(spToPx(10));
+            canvas.drawText(tags[i], cardCenterX, cardH / 2.0f + spToPx(18), tagPaint);
+        }
+    }
+
+    private void renderEditorial(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float y = 0;
+        if (hasEmoji) {
+            canvas.drawText(counter.emoji, 0, -spToPx(50), emojiPaint);
+        }
+
+        if (hasTitle) {
+            titlePaint.setTextSize(spToPx(17));
+            drawShaderText(canvas, counter.title.toUpperCase(Locale.getDefault()), 0, -spToPx(28), titlePaint, counter.titleGradient);
+        }
+
+        // Top hairline divider
+        strokePaint.setStrokeWidth(spToPx(0.8f));
+        strokePaint.setColor(Color.argb(80, 255, 255, 255));
+        canvas.drawLine(-spToPx(135), -spToPx(16), spToPx(135), -spToPx(16), strokePaint);
+
+        // Digits
+        countPaint.setTextSize(spToPx(42));
+        if (done) {
+            drawShaderText(canvas, "CELEBRATING!", 0, spToPx(14), countPaint, counter.countGradient);
+        } else {
+            String dStr = String.format(Locale.getDefault(), "%02d", d);
+            String prevDStr = String.format(Locale.getDefault(), "%02d", prevD);
+            String hStr = String.format(Locale.getDefault(), "%02d", h);
+            String prevHStr = String.format(Locale.getDefault(), "%02d", prevH);
+            String mStr = String.format(Locale.getDefault(), "%02d", m);
+            String prevMStr = String.format(Locale.getDefault(), "%02d", prevM);
+            String sStr = String.format(Locale.getDefault(), "%02d", s);
+            String prevSStr = String.format(Locale.getDefault(), "%02d", prevS);
+            String sep = " · ";
+
+            float slotW = Math.max(countPaint.measureText("88"), countPaint.measureText("00")) + spToPx(2);
+            float sepW = countPaint.measureText(sep);
+            float totalW = (slotW * 4) + (sepW * 3);
+            float curX = -totalW / 2.0f;
+            float numY = spToPx(14);
+
+            drawRollingDigits(canvas, counter, dStr, prevDStr, curX + slotW / 2.0f, numY, countPaint, counter.countGradient, rawProgress, spToPx(20));
+            curX += slotW;
+            drawShaderText(canvas, sep, curX + sepW / 2.0f, numY, countPaint, counter.countGradient);
+            curX += sepW;
+            drawRollingDigits(canvas, counter, hStr, prevHStr, curX + slotW / 2.0f, numY, countPaint, counter.countGradient, rawProgress, spToPx(20));
+            curX += slotW;
+            drawShaderText(canvas, sep, curX + sepW / 2.0f, numY, countPaint, counter.countGradient);
+            curX += sepW;
+            drawRollingDigits(canvas, counter, mStr, prevMStr, curX + slotW / 2.0f, numY, countPaint, counter.countGradient, rawProgress, spToPx(20));
+            curX += slotW;
+            drawShaderText(canvas, sep, curX + sepW / 2.0f, numY, countPaint, counter.countGradient);
+            curX += sepW;
+            drawRollingDigits(canvas, counter, sStr, prevSStr, curX + slotW / 2.0f, numY, countPaint, counter.countGradient, rawProgress, spToPx(20));
+        }
+
+        // Bottom hairline divider
+        canvas.drawLine(-spToPx(135), spToPx(28), spToPx(135), spToPx(28), strokePaint);
+
+        // Tracked spaced labels
+        tagPaint.setTextSize(spToPx(11));
+        canvas.drawText("D A Y S   ·   H O U R S   ·   M I N S   ·   S E C S", 0, spToPx(48), tagPaint);
+    }
+
+    private void renderBento(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float tileW = spToPx(120);
+        float tileH = spToPx(66);
+        float gap = spToPx(10);
+
+        float gridTop = -tileH - gap / 2.0f;
+        if (hasEmoji) {
+            canvas.drawText(counter.emoji, 0, gridTop - spToPx(38), emojiPaint);
+        }
+        if (hasTitle) {
+            titlePaint.setTextSize(spToPx(18));
+            float titleY = hasEmoji ? (gridTop - spToPx(62)) : (gridTop - spToPx(24));
+            drawShaderText(canvas, counter.title, 0, titleY, titlePaint, counter.titleGradient);
+        }
+
+        long[] vals = {d, h, m, s};
+        long[] prevVals = {prevD, prevH, prevM, prevS};
+        String[] tags = {"DAYS", "HOURS", "MINUTES", "SECONDS"};
+        float[][] coords = {
+            {-tileW - gap / 2.0f, -tileH - gap / 2.0f}, // Top Left: Days
+            {gap / 2.0f, -tileH - gap / 2.0f},         // Top Right: Hours
+            {-tileW - gap / 2.0f, gap / 2.0f},         // Bottom Left: Mins
+            {gap / 2.0f, gap / 2.0f}                   // Bottom Right: Secs
+        };
+
+        for (int i = 0; i < 4; i++) {
+            float x = coords[i][0];
+            float y = coords[i][1];
+            rectF.set(x, y, x + tileW, y + tileH);
+
+            shapePaint.setColor(Color.argb(140, 20, 26, 42));
+            canvas.drawRoundRect(rectF, spToPx(16), spToPx(16), shapePaint);
+
+            strokePaint.setStrokeWidth(spToPx(1.2f));
+            strokePaint.setColor(Color.argb(65, 255, 255, 255));
+            canvas.drawRoundRect(rectF, spToPx(16), spToPx(16), strokePaint);
+
+            // Pill tag in upper-left of tile
+            tagPaint.setTextSize(spToPx(10));
+            tagPaint.setTextAlign(Paint.Align.LEFT);
+            canvas.drawText(tags[i], x + spToPx(14), y + spToPx(20), tagPaint);
+            tagPaint.setTextAlign(Paint.Align.CENTER);
+
+            // Bold digits in center-lower of tile
+            countPaint.setTextSize(spToPx(30));
+            String valStr = String.format(Locale.getDefault(), "%02d", vals[i]);
+            String prevValStr = String.format(Locale.getDefault(), "%02d", prevVals[i]);
+            drawRollingDigits(canvas, counter, valStr, prevValStr, x + tileW / 2.0f, y + tileH - spToPx(14), countPaint, counter.countGradient, rawProgress, spToPx(18));
+        }
+    }
+
+    private void renderCyberHud(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float hudW = spToPx(280);
+        float hudH = spToPx(110);
+        rectF.set(-hudW / 2, -hudH / 2, hudW / 2, hudH / 2);
+
+        if (hasEmoji) {
+            canvas.drawText(counter.emoji, 0, -hudH / 2 - spToPx(20), emojiPaint);
+        }
+
+        // HUD tactical corners
+        strokePaint.setStrokeWidth(spToPx(2f));
+        strokePaint.setColor(counter.countColor);
+        float cornerLen = spToPx(16);
+
+        // Top-left corner
+        canvas.drawLine(-hudW / 2, -hudH / 2, -hudW / 2 + cornerLen, -hudH / 2, strokePaint);
+        canvas.drawLine(-hudW / 2, -hudH / 2, -hudW / 2, -hudH / 2 + cornerLen, strokePaint);
+
+        // Top-right corner
+        canvas.drawLine(hudW / 2, -hudH / 2, hudW / 2 - cornerLen, -hudH / 2, strokePaint);
+        canvas.drawLine(hudW / 2, -hudH / 2, hudW / 2, -hudH / 2 + cornerLen, strokePaint);
+
+        // Bottom-left corner
+        canvas.drawLine(-hudW / 2, hudH / 2, -hudW / 2 + cornerLen, hudH / 2, strokePaint);
+        canvas.drawLine(-hudW / 2, hudH / 2, -hudW / 2, hudH / 2 - cornerLen, strokePaint);
+
+        // Bottom-right corner
+        canvas.drawLine(hudW / 2, hudH / 2, hudW / 2 - cornerLen, hudH / 2, strokePaint);
+        canvas.drawLine(hudW / 2, hudH / 2, hudW / 2, hudH / 2 - cornerLen, strokePaint);
+
+        // Background subtle fill
+        shapePaint.setColor(Color.argb(110, 12, 18, 30));
+        canvas.drawRoundRect(rectF, spToPx(6), spToPx(6), shapePaint);
+
+        // Header technical text
+        String targetText = hasTitle ? ("// TARGET: " + counter.title.toUpperCase(Locale.getDefault()) + " //") : "// SYS.TARGET: ACTIVE //";
+        tagPaint.setTextSize(spToPx(11));
+        canvas.drawText(targetText, 0, -hudH / 2 + spToPx(24), tagPaint);
+
+        // Center HUD Countdown Numbers
+        countPaint.setTextSize(spToPx(28));
+        float numY = spToPx(10);
+        if (done) {
+            drawShaderText(canvas, "[ MISSION ACCOMPLISHED ]", 0, numY, countPaint, counter.countGradient);
+        } else {
+            String dStr = String.format(Locale.getDefault(), "%02d", d);
+            String prevDStr = String.format(Locale.getDefault(), "%02d", prevD);
+            String hStr = String.format(Locale.getDefault(), "%02d", h);
+            String prevHStr = String.format(Locale.getDefault(), "%02d", prevH);
+            String mStr = String.format(Locale.getDefault(), "%02d", m);
+            String prevMStr = String.format(Locale.getDefault(), "%02d", prevM);
+            String sStr = String.format(Locale.getDefault(), "%02d", s);
+            String prevSStr = String.format(Locale.getDefault(), "%02d", prevS);
+
+            String text = String.format(Locale.getDefault(), "[ %sd : %sh : %sm : ", dStr, hStr, mStr);
+            float prefixW = countPaint.measureText(text);
+            float sW = countPaint.measureText(sStr);
+            float endW = countPaint.measureText("s ]");
+            float totalW = prefixW + sW + endW;
+            float startX = -totalW / 2.0f;
+
+            drawShaderText(canvas, text, startX + prefixW / 2.0f, numY, countPaint, counter.countGradient);
+            drawRollingDigits(canvas, counter, sStr, prevSStr, startX + prefixW + sW / 2.0f, numY, countPaint, counter.countGradient, rawProgress, spToPx(16));
+            drawShaderText(canvas, "s ]", startX + prefixW + sW + endW / 2.0f, numY, countPaint, counter.countGradient);
+        }
+
+        // Subtitle status
+        tagPaint.setTextSize(spToPx(10));
+        canvas.drawText("[ T-MINUS ]  •  TELEMETRY SYNCED", 0, hudH / 2 - spToPx(16), tagPaint);
+    }
+
+    private void renderFloatTag(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float pillW = spToPx(62);
+        float pillH = spToPx(52);
+        float gap = spToPx(8);
+        float totalW = (4 * pillW) + (3 * gap);
+        float startX = -totalW / 2.0f;
+
+        if (hasEmoji) {
+            canvas.drawText(counter.emoji, 0, -pillH / 2 - spToPx(24), emojiPaint);
+        }
+        if (hasTitle) {
+            titlePaint.setTextSize(spToPx(18));
+            float titleY = hasEmoji ? (-pillH / 2 - spToPx(50)) : (-pillH / 2 - spToPx(22));
+            drawShaderText(canvas, counter.title, 0, titleY, titlePaint, counter.titleGradient);
+        }
+
+        long[] vals = {d, h, m, s};
+        long[] prevVals = {prevD, prevH, prevM, prevS};
+        String[] tags = {"DAYS", "HRS", "MIN", "SEC"};
+
+        for (int i = 0; i < 4; i++) {
+            float x = startX + i * (pillW + gap);
+            rectF.set(x, -pillH / 2, x + pillW, pillH / 2);
+
+            shapePaint.setColor(Color.argb(165, 24, 30, 48));
+            canvas.drawRoundRect(rectF, spToPx(14), spToPx(14), shapePaint);
+
+            strokePaint.setStrokeWidth(spToPx(1.2f));
+            strokePaint.setColor(counter.countColor);
+            canvas.drawRoundRect(rectF, spToPx(14), spToPx(14), strokePaint);
+
+            float centerX = x + pillW / 2.0f;
+            countPaint.setTextSize(spToPx(22));
+            String valStr = String.format(Locale.getDefault(), "%02d", vals[i]);
+            String prevValStr = String.format(Locale.getDefault(), "%02d", prevVals[i]);
+
+            drawRollingDigits(canvas, counter, valStr, prevValStr, centerX, -spToPx(1), countPaint, counter.countGradient, rawProgress, spToPx(14));
+
+            tagPaint.setTextSize(spToPx(9));
+            canvas.drawText(tags[i], centerX, spToPx(16), tagPaint);
         }
     }
 
@@ -565,7 +926,16 @@ public class DayDriftWallpaperRenderer {
         }
     }
 
+    private void drawRollingDigits(Canvas canvas, CounterModel counter, String currentDigits, String prevDigits, float x, float y, Paint paint, GradientConfig grad, float rawProgress, float slideHeight) {
+        String animStyle = (counter != null && counter.animationStyle != null) ? counter.animationStyle : CounterModel.ANIM_ROLL;
+        drawAnimatedDigits(canvas, animStyle, currentDigits, prevDigits, x, y, paint, grad, rawProgress, slideHeight);
+    }
+
     private void drawRollingDigits(Canvas canvas, String currentDigits, String prevDigits, float x, float y, Paint paint, GradientConfig grad, float rawProgress, float slideHeight) {
+        drawAnimatedDigits(canvas, CounterModel.ANIM_ROLL, currentDigits, prevDigits, x, y, paint, grad, rawProgress, slideHeight);
+    }
+
+    private void drawAnimatedDigits(Canvas canvas, String animStyle, String currentDigits, String prevDigits, float x, float y, Paint paint, GradientConfig grad, float rawProgress, float slideHeight) {
         if (rawProgress >= 1.0f || prevDigits == null || prevDigits.equals(currentDigits)) {
             drawStationaryDigits(canvas, currentDigits, x, y, paint, grad);
             return;
@@ -604,6 +974,7 @@ public class DayDriftWallpaperRenderer {
         float fontH = Math.abs(fm.ascent) + Math.abs(fm.descent);
         float clipTop = y + fm.ascent - spToPx(2);
         float clipBottom = y + fm.descent + spToPx(2);
+        float digitMidY = y - fontH * 0.35f;
         int origAlpha = paint.getAlpha();
 
         RectF unitBounds = (grad != null && grad.enabled) ? new RectF(startX, clipTop, startX + totalWidth, clipBottom) : null;
@@ -616,7 +987,7 @@ public class DayDriftWallpaperRenderer {
             float digitCenterX = curSlotX + (digitSlotW / 2.0f);
 
             if (curChar == prevChar) {
-                // Tens or higher digit did NOT change on this tick: stationary!
+                // Non-changing digit stays completely stationary
                 drawShaderText(canvas, String.valueOf(curChar), digitCenterX, y, paint, grad, unitBounds);
             } else {
                 float digitEase;
@@ -636,7 +1007,66 @@ public class DayDriftWallpaperRenderer {
 
                 if (digitEase >= 1.0f) {
                     drawShaderText(canvas, String.valueOf(curChar), digitCenterX, y, paint, grad, unitBounds);
+                } else if (CounterModel.ANIM_NONE.equals(animStyle)) {
+                    char showChar = (digitEase >= 0.5f) ? curChar : prevChar;
+                    drawShaderText(canvas, String.valueOf(showChar), digitCenterX, y, paint, grad, unitBounds);
+                } else if (CounterModel.ANIM_FLIP.equals(animStyle)) {
+                    canvas.save();
+                    float clipPad = spToPx(2f);
+                    canvas.clipRect(curSlotX - clipPad, clipTop, curSlotX + digitSlotW + clipPad, clipBottom);
+                    if (digitEase < 0.5f) {
+                        float flipProgress = digitEase * 2.0f;
+                        float scaleY = Math.max(0.01f, 1.0f - flipProgress);
+                        canvas.scale(1.0f, scaleY, digitCenterX, digitMidY);
+                        paint.setAlpha((int) (origAlpha * (1.0f - flipProgress * 0.4f)));
+                        drawShaderText(canvas, String.valueOf(prevChar), digitCenterX, y, paint, grad, unitBounds);
+                    } else {
+                        float flipProgress = (digitEase - 0.5f) * 2.0f;
+                        float scaleY = Math.max(0.01f, flipProgress);
+                        canvas.scale(1.0f, scaleY, digitCenterX, digitMidY);
+                        paint.setAlpha((int) (origAlpha * (0.6f + 0.4f * flipProgress)));
+                        drawShaderText(canvas, String.valueOf(curChar), digitCenterX, y, paint, grad, unitBounds);
+                    }
+                    paint.setAlpha(origAlpha);
+                    canvas.restore();
+                } else if (CounterModel.ANIM_FADE_SCALE.equals(animStyle)) {
+                    int outAlpha = (int) (origAlpha * (1.0f - digitEase));
+                    if (outAlpha > 0) {
+                        canvas.save();
+                        float scaleOut = 1.0f + 0.15f * digitEase;
+                        canvas.scale(scaleOut, scaleOut, digitCenterX, digitMidY);
+                        paint.setAlpha(outAlpha);
+                        drawShaderText(canvas, String.valueOf(prevChar), digitCenterX, y, paint, grad, unitBounds);
+                        canvas.restore();
+                    }
+                    int inAlpha = (int) (origAlpha * digitEase);
+                    if (inAlpha > 0) {
+                        canvas.save();
+                        float scaleIn = 0.85f + 0.15f * digitEase;
+                        canvas.scale(scaleIn, scaleIn, digitCenterX, digitMidY);
+                        paint.setAlpha(inAlpha);
+                        drawShaderText(canvas, String.valueOf(curChar), digitCenterX, y, paint, grad, unitBounds);
+                        canvas.restore();
+                    }
+                    paint.setAlpha(origAlpha);
+                } else if (CounterModel.ANIM_SLIDE_HORIZ.equals(animStyle)) {
+                    canvas.save();
+                    float clipPad = spToPx(2f);
+                    canvas.clipRect(curSlotX - clipPad, clipTop, curSlotX + digitSlotW + clipPad, clipBottom);
+                    int outAlpha = (int) (origAlpha * (1.0f - digitEase));
+                    if (outAlpha > 0) {
+                        paint.setAlpha(outAlpha);
+                        drawShaderText(canvas, String.valueOf(prevChar), digitCenterX - (digitSlotW * digitEase), y, paint, grad, unitBounds);
+                    }
+                    int inAlpha = (int) (origAlpha * digitEase);
+                    if (inAlpha > 0) {
+                        paint.setAlpha(inAlpha);
+                        drawShaderText(canvas, String.valueOf(curChar), digitCenterX + (digitSlotW * (1.0f - digitEase)), y, paint, grad, unitBounds);
+                    }
+                    paint.setAlpha(origAlpha);
+                    canvas.restore();
                 } else {
+                    // Default: ANIM_ROLL
                     canvas.save();
                     float clipPad = spToPx(1.5f);
                     canvas.clipRect(curSlotX - clipPad, clipTop, curSlotX + digitSlotW + clipPad, clipBottom);

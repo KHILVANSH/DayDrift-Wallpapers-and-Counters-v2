@@ -151,6 +151,18 @@ public class DayDriftWallpaperService extends WallpaperService {
         public void onVisibilityChanged(boolean visible) {
             this.visible = visible;
             if (visible) {
+                WallpaperConfig config = wallpaperRepo.getConfig();
+                if (isVideoMode() && config != null && config.restartVideoOnScreenOn) {
+                    if (videoRenderer != null) {
+                        videoRenderer.restartToBeginning();
+                    }
+                    if (directMediaPlayer != null && isDirectPrepared) {
+                        try {
+                            directMediaPlayer.seekTo(0);
+                            if (!isDirectPausedRequested) directMediaPlayer.start();
+                        } catch (Exception ignored) {}
+                    }
+                }
                 updateEngineState();
             } else {
                 handler.removeCallbacks(canvasDrawRunnable);

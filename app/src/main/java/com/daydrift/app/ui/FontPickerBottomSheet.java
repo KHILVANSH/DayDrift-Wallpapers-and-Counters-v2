@@ -27,9 +27,14 @@ public class FontPickerBottomSheet extends BottomSheetDialogFragment {
 
     private OnFontSelectedListener listener;
     private FontAdapter adapter;
+    private String selectedFontKey;
 
     public void setListener(OnFontSelectedListener listener) {
         this.listener = listener;
+    }
+
+    public void setSelectedFont(String fontKey) {
+        this.selectedFontKey = fontKey;
     }
 
     @Nullable
@@ -44,7 +49,7 @@ public class FontPickerBottomSheet extends BottomSheetDialogFragment {
         rv.setItemViewCacheSize(10);
 
         List<FontManager.FontItem> fontList = new ArrayList<>(FontManager.getInstance().getAllFonts());
-        adapter = new FontAdapter(fontList, (fontKey, fontName) -> {
+        adapter = new FontAdapter(fontList, selectedFontKey, (fontKey, fontName) -> {
             if (listener != null) listener.onFontSelected(fontKey, fontName);
             dismiss();
         });
@@ -70,10 +75,12 @@ public class FontPickerBottomSheet extends BottomSheetDialogFragment {
 
     private static class FontAdapter extends RecyclerView.Adapter<FontAdapter.FontViewHolder> {
         private final List<FontManager.FontItem> fonts = new ArrayList<>();
+        private final String selectedKey;
         private final OnFontSelectedListener onSelect;
 
-        FontAdapter(List<FontManager.FontItem> initialFonts, OnFontSelectedListener onSelect) {
+        FontAdapter(List<FontManager.FontItem> initialFonts, String selectedKey, OnFontSelectedListener onSelect) {
             this.fonts.addAll(initialFonts);
+            this.selectedKey = selectedKey;
             this.onSelect = onSelect;
         }
 
@@ -100,8 +107,20 @@ public class FontPickerBottomSheet extends BottomSheetDialogFragment {
             Typeface tf = FontManager.getInstance().getTypeface(item.id);
             if (tf != null) {
                 holder.tvPreview.setTypeface(tf);
+                holder.tvName.setTypeface(tf);
             } else {
-                holder.tvPreview.setTypeface(Typeface.DEFAULT);
+                holder.tvPreview.setTypeface(Typeface.DEFAULT_BOLD);
+                holder.tvName.setTypeface(Typeface.DEFAULT_BOLD);
+            }
+
+            // Realistic countdown numbers preview
+            holder.tvPreview.setText("04 : 18 : 29 : 53");
+
+            boolean isSelected = selectedKey != null && selectedKey.equalsIgnoreCase(item.id);
+            if (isSelected) {
+                holder.itemView.setBackgroundResource(R.drawable.bg_card_selected);
+            } else {
+                holder.itemView.setBackgroundResource(R.drawable.bg_card);
             }
 
             holder.itemView.setOnClickListener(v -> {
@@ -116,6 +135,7 @@ public class FontPickerBottomSheet extends BottomSheetDialogFragment {
             super.onViewRecycled(holder);
             // Free and unbind view resources when scrolled offscreen
             holder.tvPreview.setTypeface(Typeface.DEFAULT);
+            holder.tvName.setTypeface(Typeface.DEFAULT);
         }
 
         @Override

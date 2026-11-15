@@ -43,9 +43,9 @@
         android:id="@+id/tvFontPreview"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="29 : 23 : 58 : 12  DayDrift"
-        android:textColor="@color/text_secondary"
-        android:textSize="20sp" />
+        android:text="04 : 18 : 29 : 53  DayDrift"
+        android:textColor="@color/text_primary"
+        android:textSize="22sp" />
 
 </LinearLayout>
 

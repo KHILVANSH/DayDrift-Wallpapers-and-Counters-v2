@@ -47,6 +47,22 @@
         </LinearLayout>
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCheckUpdates"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🔄 Update"
+            android:textAllCaps="false"
+            android:backgroundTint="@color/bg_surface_elevated"
+            android:textColor="@color/text_primary"
+            app:strokeColor="@color/border_card"
+            app:strokeWidth="1dp"
+            app:cornerRadius="16dp"
+            android:textSize="11sp"
+            android:layout_marginEnd="6dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp" />
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnApplyWallpaper"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -553,6 +569,16 @@
                         app:strokeWidth="1dp"
                         app:cornerRadius="14dp" />
                 </LinearLayout>
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switchRestartVideoOnWake"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Restart Video On Screen On"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:checked="true" />
             </LinearLayout>
 
         </LinearLayout>

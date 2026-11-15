@@ -8,11 +8,14 @@ import android.graphics.SurfaceTexture;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.DisplayMetrics;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -33,6 +36,7 @@ import com.daydrift.app.service.DayDriftWallpaperService;
 import com.daydrift.app.view.LiveWallpaperPreviewView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.slider.Slider;
+import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.io.File;
@@ -66,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout panelUnsplash;
     private LinearLayout panelVideo;
     private TextView tvVideoStatus;
+    private SwitchMaterial switchRestartVideoOnWake;
 
     // Studio Working Copy (DRAFT STATE - NEVER SAVED UNTIL USER CLICKS SAVE BUTTON)
     private WallpaperConfig workingWallpaperConfig;
@@ -249,6 +254,13 @@ public class MainActivity extends AppCompatActivity {
         tabCounters.setOnClickListener(v -> switchTab(true));
         tabStudio.setOnClickListener(v -> switchTab(false));
 
+        // GitHub In-App Auto Update
+        findViewById(R.id.btnCheckUpdates).setOnClickListener(v -> {
+            new com.daydrift.app.data.UpdateManager().checkForUpdates(MainActivity.this, true);
+        });
+        // Background update check on startup
+        new com.daydrift.app.data.UpdateManager().checkForUpdates(MainActivity.this, false);
+
         // Set Live Wallpaper Button
         findViewById(R.id.btnApplyWallpaper).setOnClickListener(v -> {
             if (hasUnsavedChanges) {
@@ -297,6 +309,21 @@ public class MainActivity extends AppCompatActivity {
         btnToggleTouchLock = findViewById(R.id.btnToggleTouchLock);
         barUnsavedChanges = findViewById(R.id.barUnsavedChanges);
 
+        // Dynamically size phoneMockupFrame to match the exact device screen aspect ratio
+        FrameLayout phoneMockupFrame = findViewById(R.id.phoneMockupFrame);
+        if (phoneMockupFrame != null) {
+            DisplayMetrics dm = getResources().getDisplayMetrics();
+            float screenRatio = (float) Math.max(dm.widthPixels, dm.heightPixels) / (float) Math.min(dm.widthPixels, dm.heightPixels);
+            int mockupHeightPx = (int) (440 * dm.density);
+            int mockupWidthPx = (int) (mockupHeightPx / screenRatio);
+            ViewGroup.LayoutParams lp = phoneMockupFrame.getLayoutParams();
+            if (lp != null) {
+                lp.width = mockupWidthPx;
+                lp.height = mockupHeightPx;
+                phoneMockupFrame.setLayoutParams(lp);
+            }
+        }
+
         setupStudioVideoTexture();
 
         // Start locked by default to prevent accidental touches
@@ -339,6 +366,13 @@ public class MainActivity extends AppCompatActivity {
         panelUnsplash = findViewById(R.id.panelUnsplash);
         panelVideo = findViewById(R.id.panelVideo);
         tvVideoStatus = findViewById(R.id.tvVideoStatus);
+        switchRestartVideoOnWake = findViewById(R.id.switchRestartVideoOnWake);
+        switchRestartVideoOnWake.setOnCheckedChangeListener((btn, isChecked) -> {
+            if (workingWallpaperConfig != null) {
+                workingWallpaperConfig.restartVideoOnScreenOn = isChecked;
+                markStudioChanged();
+            }
+        });
 
         // Background Dropdown Menu Selection
         String[] bgMenuOptions = {
@@ -705,6 +739,9 @@ public class MainActivity extends AppCompatActivity {
         } else if (WallpaperConfig.TYPE_VIDEO.equals(currentType)) {
             menuBg.setText("Video Live Wallpaper (.mp4)", false);
             updateBackgroundPanels(WallpaperConfig.TYPE_VIDEO);
+            if (switchRestartVideoOnWake != null) {
+                switchRestartVideoOnWake.setChecked(workingWallpaperConfig.restartVideoOnScreenOn);
+            }
             if (workingWallpaperConfig.videoUri != null) {
                 tvVideoStatus.setText(extractVideoDetails(workingWallpaperConfig.videoUri));
             } else {

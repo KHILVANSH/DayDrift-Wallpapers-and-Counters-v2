@@ -113,7 +113,7 @@ public class CounterEditorDialog {
             }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show();
         });
 
-        // Layout Style Dropdown Menu
+        // Layout Style Dropdown Menu (12 Modern Styles)
         String[] layoutNames = {
             "Classic Quad (Days : Hours : Mins : Secs)",
             "Minimal Days Remaining",
@@ -121,7 +121,12 @@ public class CounterEditorDialog {
             "Frosted Glass Card",
             "Compact Pill Badge",
             "Grid Time Blocks",
-            "Neon Glow Style"
+            "Neon Cyber Glow",
+            "Retro Split-Flap Clock",
+            "Luxury Editorial Serif",
+            "2×2 Bento Box Tiles",
+            "Sci-Fi Terminal HUD",
+            "Floating Capsule Badges"
         };
         String[] layoutKeys = {
             CounterModel.STYLE_CLASSIC,
@@ -130,7 +135,12 @@ public class CounterEditorDialog {
             CounterModel.STYLE_CARD,
             CounterModel.STYLE_PILL,
             CounterModel.STYLE_BLOCK,
-            CounterModel.STYLE_NEON
+            CounterModel.STYLE_NEON,
+            CounterModel.STYLE_FLIP,
+            CounterModel.STYLE_EDITORIAL,
+            CounterModel.STYLE_BENTO,
+            CounterModel.STYLE_CYBER_HUD,
+            CounterModel.STYLE_FLOAT_TAG
         };
 
         AutoCompleteTextView menuLayoutStyle = view.findViewById(R.id.menuLayoutStyle);
@@ -146,6 +156,37 @@ public class CounterEditorDialog {
         menuLayoutStyle.setText(layoutNames[currentLayoutIndex], false);
         menuLayoutStyle.setOnItemClickListener((parent, v, pos, id) -> {
             model.layoutStyle = layoutKeys[pos];
+        });
+
+        // Animation Style Dropdown Menu
+        String[] animNames = {
+            "Rolling Digits (Mechanical Odometer)",
+            "Flip Clock (3D Vertical Card Flip)",
+            "Pop Scale (Pulse & Alpha Bloom)",
+            "Horizontal Sweep (Slide Left)",
+            "Instant Snap (No Animation)"
+        };
+        String[] animKeys = {
+            CounterModel.ANIM_ROLL,
+            CounterModel.ANIM_FLIP,
+            CounterModel.ANIM_FADE_SCALE,
+            CounterModel.ANIM_SLIDE_HORIZ,
+            CounterModel.ANIM_NONE
+        };
+
+        AutoCompleteTextView menuAnimationStyle = view.findViewById(R.id.menuAnimationStyle);
+        ArrayAdapter<String> animAdapter = new ArrayAdapter<>(activity, android.R.layout.simple_dropdown_item_1line, animNames);
+        menuAnimationStyle.setAdapter(animAdapter);
+        int currentAnimIndex = 0;
+        for (int i = 0; i < animKeys.length; i++) {
+            if (animKeys[i].equalsIgnoreCase(model.animationStyle)) {
+                currentAnimIndex = i;
+                break;
+            }
+        }
+        menuAnimationStyle.setText(animNames[currentAnimIndex], false);
+        menuAnimationStyle.setOnItemClickListener((parent, v, pos, id) -> {
+            model.animationStyle = animKeys[pos];
         });
 
         // Position Preset Dropdown Menu
@@ -182,6 +223,7 @@ public class CounterEditorDialog {
         btnFont.setText("Typography Font: " + model.fontFamily);
         btnFont.setOnClickListener(v -> {
             FontPickerBottomSheet sheet = new FontPickerBottomSheet();
+            sheet.setSelectedFont(model.fontFamily);
             sheet.setListener((fontKey, fontName) -> {
                 model.fontFamily = fontKey;
                 btnFont.setText("Typography Font: " + fontName);
