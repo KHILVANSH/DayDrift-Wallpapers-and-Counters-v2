@@ -312,6 +312,7 @@ public class MainActivity extends AppCompatActivity {
         // Studio Preview Views
         studioVideoTextureView = findViewById(R.id.studioVideoTextureView);
         studioPreviewView = findViewById(R.id.studioPreviewView);
+        studioPreviewView.setPreviewMode(LiveWallpaperPreviewView.MODE_PHONE_MOCKUP);
         btnToggleTouchLock = findViewById(R.id.btnToggleTouchLock);
         barUnsavedChanges = findViewById(R.id.barUnsavedChanges);
 

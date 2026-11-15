@@ -62,6 +62,7 @@ public class CounterEditorDialog {
 
         // 1. Live Interactive Real-Time Preview Card
         final LiveWallpaperPreviewView editorPreview = view.findViewById(R.id.editorPreviewView);
+        editorPreview.setPreviewMode(LiveWallpaperPreviewView.MODE_CARD);
         editorPreview.setConfig(wallpaperConfig, model);
         editorPreview.setInteractive(false);
         editorPreview.startTicking();

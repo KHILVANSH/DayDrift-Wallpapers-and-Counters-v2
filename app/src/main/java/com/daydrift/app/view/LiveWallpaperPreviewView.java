@@ -17,6 +17,16 @@ public class LiveWallpaperPreviewView extends View {
         void onTransformChanged(float xOffset, float yOffset, float scale, float rotation);
     }
 
+    public static final int MODE_PHONE_MOCKUP = 0;
+    public static final int MODE_CARD = 1;
+
+    private int previewMode = MODE_PHONE_MOCKUP;
+
+    public void setPreviewMode(int mode) {
+        this.previewMode = mode;
+        invalidate();
+    }
+
     private DayDriftWallpaperRenderer renderer;
     private WallpaperConfig wallpaperConfig;
     private CounterModel counterModel;
@@ -143,22 +153,51 @@ public class LiveWallpaperPreviewView extends View {
         int h = getHeight();
         if (w <= 0 || h <= 0) return;
 
-        DisplayMetrics dm = getContext().getResources().getDisplayMetrics();
-        int screenW = Math.min(dm.widthPixels, dm.heightPixels);
-        int screenH = Math.max(dm.widthPixels, dm.heightPixels);
+        long currentTime = System.currentTimeMillis();
 
-        // If this preview is displayed in a smaller frame (such as the studio phone mockup),
-        // render using the real device wallpaper dimensions and scale down uniformly so that
-        // all font sizes, margins, alignments and aspect ratios match the real wallpaper exactly.
-        if (w < screenW || h < screenH) {
-            float scaleX = (float) w / (float) screenW;
-            float scaleY = (float) h / (float) screenH;
-            canvas.save();
-            canvas.scale(scaleX, scaleY);
-            renderer.render(canvas, screenW, screenH, wallpaperConfig, counterModel, System.currentTimeMillis());
-            canvas.restore();
+        if (previewMode == MODE_CARD) {
+            // Mode CARD: renders an undistorted horizontal preview card
+            // 1. Draw wallpaper background if present
+            if (wallpaperConfig != null) {
+                renderer.renderBackground(canvas, w, h, wallpaperConfig);
+            }
+
+            // 2. Render counter centered inside card with uniform scaling
+            if (counterModel != null && counterModel.isVisibleOnWallpaper) {
+                CounterModel cardModel = CounterModel.fromJsonObject(counterModel.toJsonObject());
+                cardModel.xOffset = 0.5f;
+                cardModel.yOffset = 0.5f;
+
+                float density = getContext().getResources().getDisplayMetrics().density;
+                float heightDp = h / density;
+                if (heightDp < 120) {
+                    cardModel.scale = Math.min(cardModel.scale, 0.55f);
+                } else if (heightDp < 220) {
+                    cardModel.scale = Math.min(cardModel.scale, 0.85f);
+                }
+
+                renderer.renderCounter(canvas, w, h, cardModel, currentTime);
+            }
         } else {
-            renderer.render(canvas, w, h, wallpaperConfig, counterModel, System.currentTimeMillis());
+            // Mode PHONE_MOCKUP: renders full phone screen scaled UNIFORMLY (zero aspect distortion)
+            DisplayMetrics dm = getContext().getResources().getDisplayMetrics();
+            int screenW = Math.min(dm.widthPixels, dm.heightPixels);
+            int screenH = Math.max(dm.widthPixels, dm.heightPixels);
+
+            float uniformScale = Math.min((float) w / (float) screenW, (float) h / (float) screenH);
+            if (uniformScale <= 0f) uniformScale = 1.0f;
+
+            float drawW = screenW * uniformScale;
+            float drawH = screenH * uniformScale;
+            float left = (w - drawW) / 2.0f;
+            float top = (h - drawH) / 2.0f;
+
+            canvas.save();
+            canvas.translate(left, top);
+            canvas.scale(uniformScale, uniformScale); // UNIFORM SCALE ON BOTH X AND Y! ZERO STRETCHING!
+            canvas.clipRect(0, 0, screenW, screenH);
+            renderer.render(canvas, screenW, screenH, wallpaperConfig, counterModel, currentTime);
+            canvas.restore();
         }
     }
 
@@ -189,8 +228,22 @@ public class LiveWallpaperPreviewView extends View {
                         float dx = x - lastTouchX;
                         float dy = y - lastTouchY;
 
-                        counterModel.xOffset = Math.max(0.05f, Math.min(0.95f, counterModel.xOffset + (dx / getWidth())));
-                        counterModel.yOffset = Math.max(0.05f, Math.min(0.95f, counterModel.yOffset + (dy / getHeight())));
+                        if (previewMode == MODE_PHONE_MOCKUP) {
+                            DisplayMetrics dm = getContext().getResources().getDisplayMetrics();
+                            int screenW = Math.min(dm.widthPixels, dm.heightPixels);
+                            int screenH = Math.max(dm.widthPixels, dm.heightPixels);
+                            float uniformScale = Math.min((float) getWidth() / (float) screenW, (float) getHeight() / (float) screenH);
+                            float drawW = screenW * uniformScale;
+                            float drawH = screenH * uniformScale;
+
+                            if (drawW > 0 && drawH > 0) {
+                                counterModel.xOffset = Math.max(0.05f, Math.min(0.95f, counterModel.xOffset + (dx / drawW)));
+                                counterModel.yOffset = Math.max(0.05f, Math.min(0.95f, counterModel.yOffset + (dy / drawH)));
+                            }
+                        } else {
+                            counterModel.xOffset = Math.max(0.05f, Math.min(0.95f, counterModel.xOffset + (dx / getWidth())));
+                            counterModel.yOffset = Math.max(0.05f, Math.min(0.95f, counterModel.yOffset + (dy / getHeight())));
+                        }
 
                         lastTouchX = x;
                         lastTouchY = y;

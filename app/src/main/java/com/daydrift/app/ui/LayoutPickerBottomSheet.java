@@ -125,8 +125,8 @@ public class LayoutPickerBottomSheet extends BottomSheetDialogFragment {
             previewModel.xOffset = 0.5f;
             previewModel.yOffset = 0.5f;
 
+            holder.previewView.setPreviewMode(LiveWallpaperPreviewView.MODE_CARD);
             holder.previewView.setConfig(null, previewModel);
-            holder.previewView.setInteractive(false);
             holder.previewView.startTicking();
 
             holder.itemView.setOnClickListener(v -> {
