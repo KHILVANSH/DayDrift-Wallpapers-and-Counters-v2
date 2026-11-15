@@ -40,8 +40,10 @@ public class DayDriftWallpaperRenderer {
         strokePaint.setStyle(Paint.Style.STROKE);
     }
 
-    public void render(Canvas canvas, int width, int height, WallpaperConfig wallpaperConfig, CounterModel counter, long currentTime) {
-        if (canvas == null || width <= 0 || height <= 0) return;
+    public void render(Canvas canvas, int width, int height, WallpaperConfig wallpaperConfig, CounterModel counter,
+            long currentTime) {
+        if (canvas == null || width <= 0 || height <= 0)
+            return;
 
         // 1. Draw Background (only if wallpaperConfig is provided)
         if (wallpaperConfig != null) {
@@ -64,8 +66,9 @@ public class DayDriftWallpaperRenderer {
         if (WallpaperConfig.TYPE_SOLID.equals(type)) {
             canvas.drawColor(config.solidColor);
         } else if (WallpaperConfig.TYPE_GRADIENT.equals(type)) {
-            GradientConfig grad = config.gradientConfig != null ? config.gradientConfig :
-                new GradientConfig(true, GradientConfig.TYPE_LINEAR, 135, Color.parseColor("#0B0E14"), Color.parseColor("#1E293B"));
+            GradientConfig grad = config.gradientConfig != null ? config.gradientConfig
+                    : new GradientConfig(true, GradientConfig.TYPE_LINEAR, 135, Color.parseColor("#0B0E14"),
+                            Color.parseColor("#1E293B"));
             bgPaint.setShader(grad.createShaderForBounds(0, 0, width, height));
             canvas.drawRect(0, 0, width, height, bgPaint);
             bgPaint.setShader(null);
@@ -97,7 +100,8 @@ public class DayDriftWallpaperRenderer {
             }
         } else if (WallpaperConfig.TYPE_VIDEO.equals(type)) {
             // For video backgrounds, the video frames are rendered directly by TextureView
-            // or OpenGL ES underneath this overlay. Do NOT draw anything here to maintain transparency.
+            // or OpenGL ES underneath this overlay. Do NOT draw anything here to maintain
+            // transparency.
         }
 
         // Apply background dimming if requested
@@ -108,14 +112,16 @@ public class DayDriftWallpaperRenderer {
     }
 
     private Bitmap getBitmap(String path, int reqW, int reqH) {
-        if (path == null) return null;
+        if (path == null)
+            return null;
         if (path.equals(cachedBitmapPath) && cachedBitmap != null && !cachedBitmap.isRecycled()) {
             return cachedBitmap;
         }
 
         try {
             File f = new File(path);
-            if (!f.exists()) return null;
+            if (!f.exists())
+                return null;
 
             BitmapFactory.Options opts = new BitmapFactory.Options();
             opts.inJustDecodeBounds = true;
@@ -147,14 +153,16 @@ public class DayDriftWallpaperRenderer {
     private void renderCounter(Canvas canvas, int width, int height, CounterModel counter, long currentTime) {
         long remainingMillis = counter.targetTimestamp - currentTime;
         boolean isFinished = remainingMillis <= 0;
-        if (remainingMillis < 0) remainingMillis = 0;
+        if (remainingMillis < 0)
+            remainingMillis = 0;
 
         long days = remainingMillis / (24 * 3600 * 1000);
         long hours = (remainingMillis / (3600 * 1000)) % 24;
         long minutes = (remainingMillis / (60 * 1000)) % 60;
         long seconds = (remainingMillis / 1000) % 60;
 
-        // Sub-second interpolation for buttery-smooth digit transitions (420ms ease-out cubic)
+        // Sub-second interpolation for buttery-smooth digit transitions (420ms ease-out
+        // cubic)
         long ms = remainingMillis % 1000;
         long elapsedSinceTick = 1000 - ms;
         final float DURATION = 420.0f;
@@ -166,7 +174,8 @@ public class DayDriftWallpaperRenderer {
         long prevSeconds = (elapsedSinceTick < DURATION) ? (seconds + 1) % 60 : seconds;
         long prevMinutes = (seconds == 59 && elapsedSinceTick < DURATION) ? (minutes + 1) % 60 : minutes;
         long prevHours = (minutes == 59 && seconds == 59 && elapsedSinceTick < DURATION) ? (hours + 1) % 24 : hours;
-        long prevDays = (hours == 23 && minutes == 59 && seconds == 59 && elapsedSinceTick < DURATION) ? days + 1 : days;
+        long prevDays = (hours == 23 && minutes == 59 && seconds == 59 && elapsedSinceTick < DURATION) ? days + 1
+                : days;
 
         float cx = width * counter.xOffset;
         float cy = height * counter.yOffset;
@@ -219,16 +228,19 @@ public class DayDriftWallpaperRenderer {
                 renderRing(canvas, counter, days, hours, minutes, seconds, remainingMillis, isFinished);
                 break;
             case CounterModel.STYLE_CARD:
-                renderCard(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
+                renderCard(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
+                        prevSeconds, rawProgress, isFinished);
                 break;
             case CounterModel.STYLE_PILL:
                 renderPill(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
                 break;
             case CounterModel.STYLE_BLOCK:
-                renderBlock(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
+                renderBlock(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
+                        prevSeconds, rawProgress, isFinished);
                 break;
             case CounterModel.STYLE_NEON:
-                renderNeon(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
+                renderNeon(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
+                        prevSeconds, rawProgress, isFinished);
                 break;
             case CounterModel.STYLE_FLIP:
                 renderFlip(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
@@ -247,14 +259,16 @@ public class DayDriftWallpaperRenderer {
                 break;
             case CounterModel.STYLE_CLASSIC:
             default:
-                renderClassic(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds, prevSeconds, rawProgress, isFinished);
+                renderClassic(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
+                        prevSeconds, rawProgress, isFinished);
                 break;
         }
 
         canvas.restore();
     }
 
-    private void renderClassic(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
+    private void renderClassic(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m,
+            long prevM, long s, long prevS, float rawProgress, boolean done) {
         boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
         boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
         boolean hasTags = counter.showTimeTags && !done;
@@ -354,7 +368,8 @@ public class DayDriftWallpaperRenderer {
         }
     }
 
-    private void renderRing(Canvas canvas, CounterModel counter, long d, long h, long m, long s, long remaining, boolean done) {
+    private void renderRing(Canvas canvas, CounterModel counter, long d, long h, long m, long s, long remaining,
+            boolean done) {
         boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
         boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
 
@@ -399,7 +414,8 @@ public class DayDriftWallpaperRenderer {
         }
     }
 
-    private void renderCard(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
+    private void renderCard(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m,
+            long prevM, long s, long prevS, float rawProgress, boolean done) {
         boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
         boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
 
@@ -491,7 +507,8 @@ public class DayDriftWallpaperRenderer {
         }
     }
 
-    private void renderBlock(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
+    private void renderBlock(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m,
+            long prevM, long s, long prevS, float rawProgress, boolean done) {
         boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
         boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
 
@@ -538,7 +555,8 @@ public class DayDriftWallpaperRenderer {
         }
     }
 
-    private void renderNeon(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m, long prevM, long s, long prevS, float rawProgress, boolean done) {
+    private void renderNeon(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m,
+            long prevM, long s, long prevS, float rawProgress, boolean done) {
         boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
         boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
 
@@ -900,8 +918,10 @@ public class DayDriftWallpaperRenderer {
         return maxW;
     }
 
-    private void drawStationaryDigits(Canvas canvas, String digits, float x, float y, Paint paint, GradientConfig grad) {
-        if (digits == null || digits.isEmpty()) return;
+    private void drawStationaryDigits(Canvas canvas, String digits, float x, float y, Paint paint,
+            GradientConfig grad) {
+        if (digits == null || digits.isEmpty())
+            return;
         int len = digits.length();
         float maxDigitW = getMaxDigitWidth(paint);
         float[] slotWidths = new float[len];
@@ -915,7 +935,9 @@ public class DayDriftWallpaperRenderer {
         Paint.FontMetrics fm = paint.getFontMetrics();
         float clipTop = y + fm.ascent;
         float clipBottom = y + fm.descent;
-        RectF unitBounds = (grad != null && grad.enabled) ? new RectF(x - totalWidth / 2.0f, clipTop, x + totalWidth / 2.0f, clipBottom) : null;
+        RectF unitBounds = (grad != null && grad.enabled)
+                ? new RectF(x - totalWidth / 2.0f, clipTop, x + totalWidth / 2.0f, clipBottom)
+                : null;
 
         float curSlotX = x - (totalWidth / 2.0f);
         for (int i = 0; i < len; i++) {
@@ -931,7 +953,8 @@ public class DayDriftWallpaperRenderer {
         drawAnimatedDigits(canvas, animStyle, currentDigits, prevDigits, x, y, paint, grad, rawProgress, slideHeight);
     }
 
-    private void drawRollingDigits(Canvas canvas, String currentDigits, String prevDigits, float x, float y, Paint paint, GradientConfig grad, float rawProgress, float slideHeight) {
+    private void drawRollingDigits(Canvas canvas, String currentDigits, String prevDigits, float x, float y,
+            Paint paint, GradientConfig grad, float rawProgress, float slideHeight) {
         drawAnimatedDigits(canvas, CounterModel.ANIM_ROLL, currentDigits, prevDigits, x, y, paint, grad, rawProgress, slideHeight);
     }
 
@@ -977,7 +1000,8 @@ public class DayDriftWallpaperRenderer {
         float digitMidY = y - fontH * 0.35f;
         int origAlpha = paint.getAlpha();
 
-        RectF unitBounds = (grad != null && grad.enabled) ? new RectF(startX, clipTop, startX + totalWidth, clipBottom) : null;
+        RectF unitBounds = (grad != null && grad.enabled) ? new RectF(startX, clipTop, startX + totalWidth, clipBottom)
+                : null;
 
         float curSlotX = startX;
         for (int i = 0; i < len; i++) {
@@ -1074,13 +1098,15 @@ public class DayDriftWallpaperRenderer {
                     int outAlpha = (int) (origAlpha * (1.0f - digitEase));
                     if (outAlpha > 0) {
                         paint.setAlpha(outAlpha);
-                        drawShaderText(canvas, String.valueOf(prevChar), digitCenterX, y + (fontH * digitEase), paint, grad, unitBounds);
+                        drawShaderText(canvas, String.valueOf(prevChar), digitCenterX, y + (fontH * digitEase), paint,
+                                grad, unitBounds);
                     }
 
                     int inAlpha = (int) (origAlpha * digitEase);
                     if (inAlpha > 0) {
                         paint.setAlpha(inAlpha);
-                        drawShaderText(canvas, String.valueOf(curChar), digitCenterX, y - (fontH * (1.0f - digitEase)), paint, grad, unitBounds);
+                        drawShaderText(canvas, String.valueOf(curChar), digitCenterX, y - (fontH * (1.0f - digitEase)),
+                                paint, grad, unitBounds);
                     }
 
                     paint.setAlpha(origAlpha);
@@ -1091,7 +1117,8 @@ public class DayDriftWallpaperRenderer {
         }
     }
 
-    private void drawFullStringRoll(Canvas canvas, String currentDigits, String prevDigits, float x, float y, Paint paint, GradientConfig grad, float rawProgress) {
+    private void drawFullStringRoll(Canvas canvas, String currentDigits, String prevDigits, float x, float y,
+            Paint paint, GradientConfig grad, float rawProgress) {
         float inv = 1.0f - rawProgress;
         float easeOut = 1.0f - (inv * inv * inv);
         if (easeOut >= 1.0f) {
@@ -1130,8 +1157,10 @@ public class DayDriftWallpaperRenderer {
         drawShaderText(canvas, text, x, y, paint, gradient, null);
     }
 
-    private void drawShaderText(Canvas canvas, String text, float x, float y, Paint paint, GradientConfig gradient, RectF customBounds) {
-        if (text == null || text.isEmpty()) return;
+    private void drawShaderText(Canvas canvas, String text, float x, float y, Paint paint, GradientConfig gradient,
+            RectF customBounds) {
+        if (text == null || text.isEmpty())
+            return;
 
         if (gradient != null && gradient.enabled) {
             float left, top, right, bottom;

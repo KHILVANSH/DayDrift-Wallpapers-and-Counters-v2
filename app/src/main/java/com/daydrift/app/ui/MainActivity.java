@@ -278,7 +278,7 @@ public class MainActivity extends AppCompatActivity {
         counterAdapter = new CounterAdapter(this, new CounterAdapter.OnCounterActionListener() {
             @Override
             public void onEdit(CounterModel counter) {
-                CounterEditorDialog.show(MainActivity.this, counter, c -> loadCounters());
+                CounterEditorDialog.show(MainActivity.this, counter, workingWallpaperConfig, c -> loadCounters());
             }
 
             @Override
@@ -300,7 +300,7 @@ public class MainActivity extends AppCompatActivity {
 
         // FAB New Counter
         findViewById(R.id.fabNewCounter).setOnClickListener(v -> {
-            CounterEditorDialog.show(MainActivity.this, null, c -> loadCounters());
+            CounterEditorDialog.show(MainActivity.this, null, workingWallpaperConfig, c -> loadCounters());
         });
 
         // Studio Preview Views
@@ -374,19 +374,18 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Background Dropdown Menu Selection
-        String[] bgMenuOptions = {
-            "Gradient Wallpaper",
-            "Solid Color",
-            "My Photos (Gallery)",
-            "Unsplash Wallpapers (Live Search)",
-            "Video Live Wallpaper (.mp4)"
-        };
+        // Background Dropdown Menu Selection with Visual Previews
+        List<com.daydrift.app.model.SelectionItem> bgMenuOptions = new java.util.ArrayList<>();
+        bgMenuOptions.add(new com.daydrift.app.model.SelectionItem("GRADIENT", "Gradient Wallpaper", "Dual-tone directional or radial blend", "Modern", R.drawable.ic_bg_gradient));
+        bgMenuOptions.add(new com.daydrift.app.model.SelectionItem("SOLID", "Solid Color", "Clean uniform AMOLED black or solid fill", "Simple", R.drawable.ic_bg_solid));
+        bgMenuOptions.add(new com.daydrift.app.model.SelectionItem("IMAGE", "My Photos (Gallery)", "High-resolution photo from device storage", "Local", R.drawable.ic_bg_gallery));
+        bgMenuOptions.add(new com.daydrift.app.model.SelectionItem("UNSPLASH", "Unsplash Wallpapers", "Millions of high-res online wallpapers", "Online", R.drawable.ic_bg_unsplash));
+        bgMenuOptions.add(new com.daydrift.app.model.SelectionItem("VIDEO", "Video Live Wallpaper", "Smooth looping MP4 / MKV video wallpaper", "Live", R.drawable.ic_bg_video));
 
         AutoCompleteTextView menuBg = findViewById(R.id.menuBackgroundType);
-        ArrayAdapter<String> bgMenuAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, bgMenuOptions);
+        SelectionAdapter bgMenuAdapter = new SelectionAdapter(this, bgMenuOptions);
         menuBg.setAdapter(bgMenuAdapter);
-        menuBg.setText(bgMenuOptions[0], false);
+        menuBg.setText(bgMenuOptions.get(0).title, false);
 
         menuBg.setOnItemClickListener((parent, v, pos, id) -> {
             switch (pos) {

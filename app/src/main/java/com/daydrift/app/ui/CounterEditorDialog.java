@@ -4,10 +4,11 @@ import android.app.DatePickerDialog;
 import android.app.Dialog;
 import android.app.TimePickerDialog;
 import android.graphics.Color;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -15,16 +16,22 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.daydrift.app.R;
 import com.daydrift.app.data.CounterRepository;
 import com.daydrift.app.data.FontManager;
+import com.daydrift.app.data.WallpaperRepository;
 import com.daydrift.app.model.CounterModel;
 import com.daydrift.app.model.GradientConfig;
+import com.daydrift.app.model.SelectionItem;
+import com.daydrift.app.model.WallpaperConfig;
+import com.daydrift.app.view.LiveWallpaperPreviewView;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.slider.Slider;
 import com.google.android.material.switchmaterial.SwitchMaterial;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 public class CounterEditorDialog {
@@ -33,12 +40,17 @@ public class CounterEditorDialog {
     }
 
     public static void show(AppCompatActivity activity, CounterModel existingCounter, OnSaveListener listener) {
+        WallpaperConfig wallpaperConfig = WallpaperRepository.getInstance(activity).getConfig();
+        show(activity, existingCounter, wallpaperConfig, listener);
+    }
+
+    public static void show(AppCompatActivity activity, CounterModel existingCounter, WallpaperConfig wallpaperConfig, OnSaveListener listener) {
         Dialog dialog = new Dialog(activity, R.style.Theme_DayDrift);
         View view = LayoutInflater.from(activity).inflate(R.layout.dialog_counter_editor, null);
         dialog.setContentView(view);
         dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
 
-        // Create a completely detached working copy so modifications are never saved until Save is explicitly clicked
+        // Detached working draft copy so modifications are never committed until Save is clicked
         final CounterModel model = existingCounter != null
                 ? CounterModel.fromJsonObject(existingCounter.toJsonObject())
                 : new CounterModel();
@@ -48,18 +60,48 @@ public class CounterEditorDialog {
 
         view.findViewById(R.id.btnCloseDialog).setOnClickListener(v -> dialog.dismiss());
 
+        // 1. Live Interactive Real-Time Preview Card
+        final LiveWallpaperPreviewView editorPreview = view.findViewById(R.id.editorPreviewView);
+        editorPreview.setConfig(wallpaperConfig, model);
+        editorPreview.setInteractive(false);
+        editorPreview.startTicking();
+
+        final Runnable refreshPreview = () -> {
+            editorPreview.setConfig(wallpaperConfig, model);
+            editorPreview.invalidate();
+        };
+
+        // Test / Replay Animation Button
+        view.findViewById(R.id.btnTestAnimation).setOnClickListener(v -> {
+            editorPreview.startTicking();
+            editorPreview.invalidate();
+        });
+
+        // 2. Title & Visibility
         TextInputEditText inputTitle = view.findViewById(R.id.inputTitle);
         inputTitle.setText(model.title);
+        inputTitle.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                model.title = s != null ? s.toString() : "";
+                refreshPreview.run();
+            }
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
 
-        // Show Title toggle
         SwitchMaterial switchShowTitle = view.findViewById(R.id.switchShowTitle);
         switchShowTitle.setChecked(model.showTitle);
-        switchShowTitle.setOnCheckedChangeListener((btn, isChecked) -> model.showTitle = isChecked);
+        switchShowTitle.setOnCheckedChangeListener((btn, isChecked) -> {
+            model.showTitle = isChecked;
+            refreshPreview.run();
+        });
 
-        // Emoji buttons
+        // 3. Emoji selection
         MaterialButton btnEmoji = view.findViewById(R.id.btnEmojiPicker);
         MaterialButton btnRemoveEmoji = view.findViewById(R.id.btnRemoveEmoji);
-
         updateEmojiButtonLabel(btnEmoji, model.emoji, model.showEmoji);
 
         btnEmoji.setOnClickListener(v -> {
@@ -73,6 +115,7 @@ public class CounterEditorDialog {
                     model.showEmoji = true;
                 }
                 updateEmojiButtonLabel(btnEmoji, model.emoji, model.showEmoji);
+                refreshPreview.run();
             });
             sheet.show(activity.getSupportFragmentManager(), "emoji_picker");
         });
@@ -81,9 +124,10 @@ public class CounterEditorDialog {
             model.emoji = "";
             model.showEmoji = false;
             updateEmojiButtonLabel(btnEmoji, "", false);
+            refreshPreview.run();
         });
 
-        // Date and Time Pickers
+        // 4. Date and Time Pickers
         MaterialButton btnDate = view.findViewById(R.id.btnDatePicker);
         MaterialButton btnTime = view.findViewById(R.id.btnTimePicker);
         Calendar cal = Calendar.getInstance();
@@ -101,6 +145,7 @@ public class CounterEditorDialog {
                 cal.set(Calendar.DAY_OF_MONTH, day);
                 model.targetTimestamp = cal.getTimeInMillis();
                 btnDate.setText(dateFormat.format(new Date(model.targetTimestamp)));
+                refreshPreview.run();
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show();
         });
 
@@ -110,115 +155,102 @@ public class CounterEditorDialog {
                 cal.set(Calendar.MINUTE, minute);
                 model.targetTimestamp = cal.getTimeInMillis();
                 btnTime.setText(timeFormat.format(new Date(model.targetTimestamp)));
+                refreshPreview.run();
             }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show();
         });
 
-        // Layout Style Dropdown Menu (12 Modern Styles)
-        String[] layoutNames = {
-            "Classic Quad (Days : Hours : Mins : Secs)",
-            "Minimal Days Remaining",
-            "Circular Ring Progress",
-            "Frosted Glass Card",
-            "Compact Pill Badge",
-            "Grid Time Blocks",
-            "Neon Cyber Glow",
-            "Retro Split-Flap Clock",
-            "Luxury Editorial Serif",
-            "2×2 Bento Box Tiles",
-            "Sci-Fi Terminal HUD",
-            "Floating Capsule Badges"
-        };
-        String[] layoutKeys = {
-            CounterModel.STYLE_CLASSIC,
-            CounterModel.STYLE_MINIMAL,
-            CounterModel.STYLE_RING,
-            CounterModel.STYLE_CARD,
-            CounterModel.STYLE_PILL,
-            CounterModel.STYLE_BLOCK,
-            CounterModel.STYLE_NEON,
-            CounterModel.STYLE_FLIP,
-            CounterModel.STYLE_EDITORIAL,
-            CounterModel.STYLE_BENTO,
-            CounterModel.STYLE_CYBER_HUD,
-            CounterModel.STYLE_FLOAT_TAG
-        };
+        // 5. Layout Style Dropdown Menu (12 Modern Styles with Visual Previews)
+        List<SelectionItem> layoutItems = new ArrayList<>();
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_CLASSIC, "Classic Quad Stack", "04 : 18 : 29 : 53 with colons & tags", "Popular", R.drawable.ic_layout_classic));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_MINIMAL, "Minimal Days Remaining", "Oversized bold count with status text", "Clean", R.drawable.ic_layout_minimal));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_RING, "Circular Ring Progress", "Smooth sweep radial arc with glowing tip", "Progress", R.drawable.ic_layout_ring));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_CARD, "Frosted Glass Card", "Translucent card container auto-sized for content", "Glass", R.drawable.ic_layout_card));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_PILL, "Compact Pill Badge", "Horizontal capsule pill with title and timer inside", "Capsule", R.drawable.ic_layout_pill));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_BLOCK, "Grid Time Blocks", "4 frosted tiles for Days, Hours, Mins, and Secs", "Modular", R.drawable.ic_layout_block));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_NEON, "Neon Cyber Glow", "High-intensity glowing neon digits and title glow", "Cyber", R.drawable.ic_layout_neon));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_FLIP, "Retro Split-Flap Clock", "Mechanical split-flap cards with groove lines", "Mechanical", R.drawable.ic_layout_flip));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_EDITORIAL, "Luxury Editorial Serif", "High-fashion hairline rules with tracked tags", "Editorial", R.drawable.ic_layout_editorial));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_BENTO, "2×2 Bento Box Tiles", "Modern 2×2 squircle grid with corner badges", "Bento", R.drawable.ic_layout_bento));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_CYBER_HUD, "Sci-Fi Terminal HUD", "Tactical HUD with corner brackets and telemetry", "Tactical", R.drawable.ic_layout_cyber));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_FLOAT_TAG, "Floating Capsule Badges", "4 floating translucent capsules with bold numbers", "Modern", R.drawable.ic_layout_float));
 
         AutoCompleteTextView menuLayoutStyle = view.findViewById(R.id.menuLayoutStyle);
-        ArrayAdapter<String> layoutAdapter = new ArrayAdapter<>(activity, android.R.layout.simple_dropdown_item_1line, layoutNames);
+        SelectionAdapter layoutAdapter = new SelectionAdapter(activity, layoutItems);
         menuLayoutStyle.setAdapter(layoutAdapter);
+
         int currentLayoutIndex = 0;
-        for (int i = 0; i < layoutKeys.length; i++) {
-            if (layoutKeys[i].equalsIgnoreCase(model.layoutStyle)) {
+        for (int i = 0; i < layoutItems.size(); i++) {
+            if (layoutItems.get(i).key.equalsIgnoreCase(model.layoutStyle)) {
                 currentLayoutIndex = i;
                 break;
             }
         }
-        menuLayoutStyle.setText(layoutNames[currentLayoutIndex], false);
+        menuLayoutStyle.setText(layoutItems.get(currentLayoutIndex).title, false);
         menuLayoutStyle.setOnItemClickListener((parent, v, pos, id) -> {
-            model.layoutStyle = layoutKeys[pos];
+            model.layoutStyle = layoutItems.get(pos).key;
+            refreshPreview.run();
         });
 
-        // Animation Style Dropdown Menu
-        String[] animNames = {
-            "Rolling Digits (Mechanical Odometer)",
-            "Flip Clock (3D Vertical Card Flip)",
-            "Pop Scale (Pulse & Alpha Bloom)",
-            "Horizontal Sweep (Slide Left)",
-            "Instant Snap (No Animation)"
-        };
-        String[] animKeys = {
-            CounterModel.ANIM_ROLL,
-            CounterModel.ANIM_FLIP,
-            CounterModel.ANIM_FADE_SCALE,
-            CounterModel.ANIM_SLIDE_HORIZ,
-            CounterModel.ANIM_NONE
-        };
+        // Browse Visual Layout Cards Button
+        view.findViewById(R.id.btnBrowseLayouts).setOnClickListener(v -> {
+            LayoutPickerBottomSheet sheet = new LayoutPickerBottomSheet();
+            sheet.setSelectedKey(model.layoutStyle);
+            sheet.setBaseModel(model);
+            sheet.setListener((key, name) -> {
+                model.layoutStyle = key;
+                menuLayoutStyle.setText(name, false);
+                refreshPreview.run();
+            });
+            sheet.show(activity.getSupportFragmentManager(), "layout_picker");
+        });
+
+        // 6. Animation Style Dropdown Menu (5 Animation Transitions with Previews)
+        List<SelectionItem> animItems = new ArrayList<>();
+        animItems.add(new SelectionItem(CounterModel.ANIM_ROLL, "Rolling Digits", "Odometer roll with staggered ones-first delay", "Odometer", R.drawable.ic_anim_roll));
+        animItems.add(new SelectionItem(CounterModel.ANIM_FLIP, "Flip Clock", "3D vertical card fold top-down", "Mechanical", R.drawable.ic_anim_flip));
+        animItems.add(new SelectionItem(CounterModel.ANIM_FADE_SCALE, "Pop Scale", "Pulse zoom & alpha bloom transition", "Bloom", R.drawable.ic_anim_pop));
+        animItems.add(new SelectionItem(CounterModel.ANIM_SLIDE_HORIZ, "Horizontal Sweep", "Slot-clipped left-to-right slide", "Slide", R.drawable.ic_anim_slide));
+        animItems.add(new SelectionItem(CounterModel.ANIM_NONE, "Instant Snap", "Zero-latency instantaneous jump", "Static", R.drawable.ic_anim_snap));
 
         AutoCompleteTextView menuAnimationStyle = view.findViewById(R.id.menuAnimationStyle);
-        ArrayAdapter<String> animAdapter = new ArrayAdapter<>(activity, android.R.layout.simple_dropdown_item_1line, animNames);
+        SelectionAdapter animAdapter = new SelectionAdapter(activity, animItems);
         menuAnimationStyle.setAdapter(animAdapter);
+
         int currentAnimIndex = 0;
-        for (int i = 0; i < animKeys.length; i++) {
-            if (animKeys[i].equalsIgnoreCase(model.animationStyle)) {
+        for (int i = 0; i < animItems.size(); i++) {
+            if (animItems.get(i).key.equalsIgnoreCase(model.animationStyle)) {
                 currentAnimIndex = i;
                 break;
             }
         }
-        menuAnimationStyle.setText(animNames[currentAnimIndex], false);
+        menuAnimationStyle.setText(animItems.get(currentAnimIndex).title, false);
         menuAnimationStyle.setOnItemClickListener((parent, v, pos, id) -> {
-            model.animationStyle = animKeys[pos];
+            model.animationStyle = animItems.get(pos).key;
+            refreshPreview.run();
         });
 
-        // Position Preset Dropdown Menu
-        String[] presetNames = {
-            "Center On Screen",
-            "Top Center",
-            "Bottom Center",
-            "Top Left",
-            "Top Right",
-            "Bottom Left",
-            "Bottom Right"
-        };
-        float[][] presetCoords = {
-            {0.5f, 0.5f},
-            {0.5f, 0.22f},
-            {0.5f, 0.78f},
-            {0.25f, 0.22f},
-            {0.75f, 0.22f},
-            {0.25f, 0.78f},
-            {0.75f, 0.78f}
-        };
+        // 7. Position Preset Dropdown Menu (7 Positions with Phone Mockup Previews)
+        List<SelectionItem> presetItems = new ArrayList<>();
+        presetItems.add(SelectionItem.forPosition("center", "Center On Screen", "X: 50% • Y: 50%", 0.5f, 0.5f));
+        presetItems.add(SelectionItem.forPosition("top_center", "Top Center", "X: 50% • Y: 22%", 0.5f, 0.22f));
+        presetItems.add(SelectionItem.forPosition("bottom_center", "Bottom Center", "X: 50% • Y: 78%", 0.5f, 0.78f));
+        presetItems.add(SelectionItem.forPosition("top_left", "Top Left", "X: 25% • Y: 22%", 0.25f, 0.22f));
+        presetItems.add(SelectionItem.forPosition("top_right", "Top Right", "X: 75% • Y: 22%", 0.75f, 0.22f));
+        presetItems.add(SelectionItem.forPosition("bottom_left", "Bottom Left", "X: 25% • Y: 78%", 0.25f, 0.78f));
+        presetItems.add(SelectionItem.forPosition("bottom_right", "Bottom Right", "X: 75% • Y: 78%", 0.75f, 0.78f));
 
         AutoCompleteTextView menuPositionPreset = view.findViewById(R.id.menuPositionPreset);
-        ArrayAdapter<String> presetAdapter = new ArrayAdapter<>(activity, android.R.layout.simple_dropdown_item_1line, presetNames);
+        SelectionAdapter presetAdapter = new SelectionAdapter(activity, presetItems);
         menuPositionPreset.setAdapter(presetAdapter);
-        menuPositionPreset.setText(presetNames[0], false);
+        menuPositionPreset.setText(presetItems.get(0).title, false);
         menuPositionPreset.setOnItemClickListener((parent, v, pos, id) -> {
-            model.xOffset = presetCoords[pos][0];
-            model.yOffset = presetCoords[pos][1];
+            SelectionItem sel = presetItems.get(pos);
+            model.xOffset = sel.posX;
+            model.yOffset = sel.posY;
+            refreshPreview.run();
         });
 
-        // Font Selection Button
+        // 8. Font Selection Button
         MaterialButton btnFont = view.findViewById(R.id.btnSelectFont);
         btnFont.setText("Typography Font: " + model.fontFamily);
         btnFont.setOnClickListener(v -> {
@@ -227,20 +259,20 @@ public class CounterEditorDialog {
             sheet.setListener((fontKey, fontName) -> {
                 model.fontFamily = fontKey;
                 btnFont.setText("Typography Font: " + fontName);
+                refreshPreview.run();
             });
             sheet.show(activity.getSupportFragmentManager(), "font_picker");
         });
 
-        // Color Format Dropdown & Controls
-        String[] colorFormatNames = {
-            "Linear Gradient (Custom Angle)",
-            "Radial Gradient (Center Out)",
-            "Sweep Gradient (Conical)",
-            "Solid Color"
-        };
+        // 9. Color Format Dropdown & Controls (with Gradient Swatch Previews)
+        List<SelectionItem> colorFormatItems = new ArrayList<>();
+        colorFormatItems.add(SelectionItem.forSwatch("linear", "Linear Gradient", "Dual-color directional blend", Color.parseColor("#00E5FF"), Color.parseColor("#6366F1"), GradientConfig.TYPE_LINEAR));
+        colorFormatItems.add(SelectionItem.forSwatch("radial", "Radial Gradient", "Center-out circular bloom", Color.parseColor("#21C998"), Color.parseColor("#06B6D4"), GradientConfig.TYPE_RADIAL));
+        colorFormatItems.add(SelectionItem.forSwatch("sweep", "Sweep Gradient", "Conical 360° circular sweep", Color.parseColor("#F59E0B"), Color.parseColor("#EC4899"), GradientConfig.TYPE_SWEEP));
+        colorFormatItems.add(SelectionItem.forSwatch("solid", "Solid Color", "Uniform single color fill", Color.parseColor("#21C998"), 0, GradientConfig.TYPE_SOLID));
 
         AutoCompleteTextView menuColorFormat = view.findViewById(R.id.menuColorFormat);
-        ArrayAdapter<String> colorFormatAdapter = new ArrayAdapter<>(activity, android.R.layout.simple_dropdown_item_1line, colorFormatNames);
+        SelectionAdapter colorFormatAdapter = new SelectionAdapter(activity, colorFormatItems);
         menuColorFormat.setAdapter(colorFormatAdapter);
 
         LinearLayout layoutGrad = view.findViewById(R.id.layoutCountGradientOptions);
@@ -256,24 +288,24 @@ public class CounterEditorDialog {
 
         // Determine initial format selection
         if (!model.countGradient.enabled) {
-            menuColorFormat.setText(colorFormatNames[3], false);
+            menuColorFormat.setText(colorFormatItems.get(3).title, false);
             layoutGrad.setVisibility(View.GONE);
             btnSolid.setVisibility(View.VISIBLE);
             btnSolid.setBackgroundColor(model.countColor);
         } else if (GradientConfig.TYPE_RADIAL.equals(model.countGradient.type)) {
-            menuColorFormat.setText(colorFormatNames[1], false);
+            menuColorFormat.setText(colorFormatItems.get(1).title, false);
             layoutGrad.setVisibility(View.VISIBLE);
             sliderGradAngle.setVisibility(View.GONE);
             tvGradAngle.setVisibility(View.GONE);
             btnSolid.setVisibility(View.GONE);
         } else if (GradientConfig.TYPE_SWEEP.equals(model.countGradient.type)) {
-            menuColorFormat.setText(colorFormatNames[2], false);
+            menuColorFormat.setText(colorFormatItems.get(2).title, false);
             layoutGrad.setVisibility(View.VISIBLE);
             sliderGradAngle.setVisibility(View.GONE);
             tvGradAngle.setVisibility(View.GONE);
             btnSolid.setVisibility(View.GONE);
         } else {
-            menuColorFormat.setText(colorFormatNames[0], false);
+            menuColorFormat.setText(colorFormatItems.get(0).title, false);
             layoutGrad.setVisibility(View.VISIBLE);
             sliderGradAngle.setVisibility(View.VISIBLE);
             tvGradAngle.setVisibility(View.VISIBLE);
@@ -313,18 +345,21 @@ public class CounterEditorDialog {
                 btnSolid.setVisibility(View.VISIBLE);
                 btnSolid.setBackgroundColor(model.countColor);
             }
+            refreshPreview.run();
         });
 
         sliderGradAngle.addOnChangeListener((slider, val, fromUser) -> {
             int angle = (int) val;
             model.countGradient.angle = angle;
             tvGradAngle.setText("Gradient Angle: " + angle + "°");
+            refreshPreview.run();
         });
 
         btnStartColor.setOnClickListener(v -> {
             ColorPickerDialog.show(activity, "Start Gradient Color", model.countGradient.startColor, color -> {
                 model.countGradient.startColor = color;
                 btnStartColor.setBackgroundColor(color);
+                refreshPreview.run();
             });
         });
 
@@ -332,6 +367,7 @@ public class CounterEditorDialog {
             ColorPickerDialog.show(activity, "End Gradient Color", model.countGradient.endColor, color -> {
                 model.countGradient.endColor = color;
                 btnEndColor.setBackgroundColor(color);
+                refreshPreview.run();
             });
         });
 
@@ -339,10 +375,11 @@ public class CounterEditorDialog {
             ColorPickerDialog.show(activity, "Digit Solid Color", model.countColor, color -> {
                 model.countColor = color;
                 btnSolid.setBackgroundColor(color);
+                refreshPreview.run();
             });
         });
 
-        // Cancel & Save
+        // 10. Cancel & Save
         view.findViewById(R.id.btnCancel).setOnClickListener(v -> dialog.dismiss());
         view.findViewById(R.id.btnSave).setOnClickListener(v -> {
             String title = inputTitle.getText() != null ? inputTitle.getText().toString().trim() : "";

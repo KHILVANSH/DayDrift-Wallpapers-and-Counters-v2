@@ -1,0 +1,15 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Cyber Tactical HUD Corners -->
+    <path
+        android:strokeColor="@color/accent_cyan"
+        android:strokeWidth="2"
+        android:strokeLineCap="square"
+        android:pathData="M2,8v-5h5 M22,8v-5h-5 M2,16v5h5 M22,16v5h-5" />
+    <path
+        android:fillColor="@color/primary"
+        android:pathData="M6,10h12v4h-12z" />
+</vector>

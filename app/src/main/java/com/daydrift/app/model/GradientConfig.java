@@ -15,6 +15,7 @@ public class GradientConfig implements Serializable {
     public static final String TYPE_LINEAR = "LINEAR";
     public static final String TYPE_RADIAL = "RADIAL";
     public static final String TYPE_SWEEP = "SWEEP";
+    public static final String TYPE_SOLID = "SOLID";
 
     public boolean enabled;
     public String type;
@@ -36,6 +37,10 @@ public class GradientConfig implements Serializable {
         this.angle = angle;
         this.startColor = startColor;
         this.endColor = endColor;
+    }
+
+    public GradientConfig copy() {
+        return new GradientConfig(this.enabled, this.type, this.angle, this.startColor, this.endColor);
     }
 
     public Shader createShader(float width, float height) {

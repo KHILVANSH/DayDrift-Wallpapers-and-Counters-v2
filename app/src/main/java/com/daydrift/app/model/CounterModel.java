@@ -80,6 +80,38 @@ public class CounterModel implements Serializable {
         this.showTimeTags = true;
     }
 
+    public CounterModel(String title, long targetTimestamp, String emoji) {
+        this();
+        this.title = title;
+        this.targetTimestamp = targetTimestamp;
+        this.emoji = emoji;
+    }
+
+    public CounterModel(CounterModel other) {
+        this();
+        if (other != null) {
+            this.title = other.title;
+            this.emoji = other.emoji;
+            this.targetTimestamp = other.targetTimestamp;
+            this.createdTimestamp = other.createdTimestamp;
+            this.isVisibleOnWallpaper = other.isVisibleOnWallpaper;
+            this.countColor = other.countColor;
+            this.countGradient = other.countGradient != null ? other.countGradient.copy() : null;
+            this.titleColor = other.titleColor;
+            this.titleGradient = other.titleGradient != null ? other.titleGradient.copy() : null;
+            this.layoutStyle = other.layoutStyle;
+            this.animationStyle = other.animationStyle;
+            this.fontFamily = other.fontFamily;
+            this.xOffset = other.xOffset;
+            this.yOffset = other.yOffset;
+            this.scale = other.scale;
+            this.rotation = other.rotation;
+            this.showEmoji = other.showEmoji;
+            this.showTitle = other.showTitle;
+            this.showTimeTags = other.showTimeTags;
+        }
+    }
+
     public JSONObject toJsonObject() {
         JSONObject json = new JSONObject();
         try {
