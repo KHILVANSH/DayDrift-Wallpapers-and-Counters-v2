@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 public class UpdateManager {
     private static final String GITHUB_REPO = "KHILVANSH/DayDrift-Wallpapers-and-Counters-v2";
     private static final String GITHUB_API_URL = "https://api.github.com/repos/" + GITHUB_REPO + "/releases/latest";
-    private static final String DEFAULT_GITHUB_PAT = "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";
+    private static final String DEFAULT_GITHUB_PAT = "";
     private static final String PREFS_NAME = "daydrift_prefs";
     private static final String PREF_KEY_PAT = "pref_github_pat";
 
