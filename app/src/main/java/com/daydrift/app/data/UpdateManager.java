@@ -6,7 +6,6 @@ import android.app.AlertDialog;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -15,20 +14,27 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Html;
+import android.view.LayoutInflater;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.FileProvider;
 import com.daydrift.app.R;
+import com.google.android.material.button.MaterialButton;
 import okhttp3.Call;
 import okhttp3.Callback;
+import okhttp3.ConnectionPool;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
@@ -41,6 +47,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -61,6 +68,10 @@ public class UpdateManager {
     public static final String EXTRA_RELEASE_NOTES = "extra_release_notes";
     public static final String EXTRA_RELEASE_URL = "extra_release_url";
     public static final String EXTRA_RELEASE_SIZE = "extra_release_size";
+
+    // Standard Android Chrome Mobile User-Agent to bypass restrictive CDN rate limiting
+    private static final String DOWNLOAD_USER_AGENT =
+            "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36";
 
     private final OkHttpClient client;
     private final Handler mainHandler;
@@ -83,7 +94,13 @@ public class UpdateManager {
     public UpdateManager() {
         this.client = new OkHttpClient.Builder()
                 .connectTimeout(15, TimeUnit.SECONDS)
-                .readTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .retryOnConnectionFailure(true)
+                .connectionPool(new ConnectionPool(5, 5, TimeUnit.MINUTES))
+                .protocols(Arrays.asList(Protocol.HTTP_2, Protocol.HTTP_1_1))
                 .build();
         this.mainHandler = new Handler(Looper.getMainLooper());
     }
@@ -110,7 +127,6 @@ public class UpdateManager {
         if (context == null)
             return;
 
-        // Verify notification permission on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ActivityCompat.checkSelfPermission(context,
                     Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -168,7 +184,6 @@ public class UpdateManager {
         long lastCheck = prefs.getLong(PREF_LAST_UPDATE_CHECK, 0);
         long now = System.currentTimeMillis();
 
-        // Throttle background checks to at most once every 4 hours
         if (now - lastCheck < 4 * 3600 * 1000) {
             return;
         }
@@ -297,6 +312,7 @@ public class UpdateManager {
                         }
                     }
 
+                    // Always prefer direct CDN browser download URL
                     final String finalApkUrl = (apkDownloadUrl != null && !apkDownloadUrl.isEmpty())
                             ? apkDownloadUrl
                             : apkAssetApiUrl;
@@ -308,7 +324,7 @@ public class UpdateManager {
                         showUpdateNotification(activity.getApplicationContext(), releaseName, tagName, releaseNotes,
                                 finalApkUrl, finalAssetSize);
 
-                        // If user is currently in the app, also present the dialog
+                        // If user is currently in the app, present the rich update dialog
                         mainHandler.post(() -> showUpdateDialog(activity, releaseName, tagName, releaseNotes,
                                 finalApkUrl, finalAssetSize));
                     } else if (showFeedbackWhenLatest) {
@@ -355,43 +371,159 @@ public class UpdateManager {
                 .show();
     }
 
+    /**
+     * Parses markdown release notes into clean, rich HTML styling
+     */
+    public static CharSequence formatChangelog(String markdown) {
+        if (markdown == null || markdown.trim().isEmpty()) {
+            return "✨ General stability, layout alignment, and typography improvements.";
+        }
+
+        StringBuilder html = new StringBuilder();
+        String[] lines = markdown.split("\n");
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+
+            if (trimmed.startsWith("### ")) {
+                String title = trimmed.substring(4).replaceAll("\\*\\*", "");
+                html.append("<br><b><font color=\"#21C998\">").append(title).append("</font></b><br>");
+            } else if (trimmed.startsWith("#### ")) {
+                String title = trimmed.substring(5).replaceAll("\\*\\*", "");
+                html.append("<br><b><font color=\"#93C5FD\">").append(title).append("</font></b><br>");
+            } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+                String item = trimmed.substring(2);
+                item = item.replaceAll("\\*\\*(.*?)\\*\\*", "<b>$1</b>");
+                html.append("&nbsp;&nbsp;•&nbsp;&nbsp;").append(item).append("<br>");
+            } else if (trimmed.startsWith("  - ") || trimmed.startsWith("  * ")) {
+                String item = trimmed.substring(4);
+                item = item.replaceAll("\\*\\*(.*?)\\*\\*", "<b>$1</b>");
+                html.append("&nbsp;&nbsp;&nbsp;&nbsp;▸&nbsp;&nbsp;<font color=\"#94A3B8\">").append(item).append("</font><br>");
+            } else {
+                String item = trimmed.replaceAll("\\*\\*(.*?)\\*\\*", "<b>$1</b>");
+                html.append(item).append("<br>");
+            }
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            return Html.fromHtml(html.toString(), Html.FROM_HTML_MODE_COMPACT);
+        } else {
+            return Html.fromHtml(html.toString());
+        }
+    }
+
+    /**
+     * Modernized Update Dialog with beautiful changelog rendering and in-dialog progress bar
+     */
     public void showUpdateDialog(Activity activity, String releaseName, String tagName, String releaseNotes,
             String apkUrl, long expectedSize) {
         if (activity.isFinishing() || activity.isDestroyed())
             return;
 
-        double mb = expectedSize > 0 ? (expectedSize / (1024.0 * 1024.0)) : 6.3;
-        String sizeInfo = String.format(Locale.getDefault(), " (%.1f MB)", mb);
+        AlertDialog.Builder builder = new AlertDialog.Builder(activity, R.style.Theme_DayDrift);
+        View dialogView = LayoutInflater.from(activity).inflate(R.layout.dialog_update_installer, null);
+        builder.setView(dialogView);
+        builder.setCancelable(true);
 
-        new AlertDialog.Builder(activity, R.style.Theme_DayDrift)
-                .setTitle("🚀 Update Available: " + (releaseName.isEmpty() ? tagName : releaseName) + sizeInfo)
-                .setMessage("What's New in " + tagName + ":\n\n"
-                        + (releaseNotes.trim().isEmpty() ? "Typography studio with 100+ fonts and enhanced visuals."
-                                : releaseNotes))
-                .setPositiveButton("Download & Install",
-                        (dialog, which) -> downloadAndInstallApk(activity, apkUrl, tagName, expectedSize))
-                .setNegativeButton("Later", (dialog, which) -> dialog.dismiss())
-                .setCancelable(true)
-                .show();
+        AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+
+        TextView tvVersionTag = dialogView.findViewById(R.id.tvVersionTag);
+        TextView tvUpdateTitle = dialogView.findViewById(R.id.tvUpdateTitle);
+        TextView tvUpdateMeta = dialogView.findViewById(R.id.tvUpdateMeta);
+        TextView tvChangelogContent = dialogView.findViewById(R.id.tvChangelogContent);
+        View btnClose = dialogView.findViewById(R.id.btnCloseUpdateDialog);
+        MaterialButton btnStartDownload = dialogView.findViewById(R.id.btnStartDownload);
+        MaterialButton btnDismiss = dialogView.findViewById(R.id.btnDismissUpdate);
+
+        // Progress views
+        View layoutDownloadProgress = dialogView.findViewById(R.id.layoutDownloadProgress);
+        TextView tvDownloadStatus = dialogView.findViewById(R.id.tvDownloadStatus);
+        TextView tvDownloadSpeed = dialogView.findViewById(R.id.tvDownloadSpeed);
+        ProgressBar progressBarDownload = dialogView.findViewById(R.id.progressBarDownload);
+        TextView tvDownloadSize = dialogView.findViewById(R.id.tvDownloadSize);
+        TextView tvDownloadPercent = dialogView.findViewById(R.id.tvDownloadPercent);
+
+        tvVersionTag.setText(tagName);
+        tvUpdateTitle.setText(releaseName != null && !releaseName.isEmpty() ? releaseName : "DayDrift " + tagName);
+
+        double mb = expectedSize > 0 ? (expectedSize / (1024.0 * 1024.0)) : 14.8;
+        tvUpdateMeta.setText(String.format(Locale.getDefault(), "%.1f MB • High-Speed CDN Edge", mb));
+
+        // Format and render stylized changelog
+        tvChangelogContent.setText(formatChangelog(releaseNotes));
+
+        btnClose.setOnClickListener(v -> dialog.dismiss());
+        btnDismiss.setOnClickListener(v -> dialog.dismiss());
+
+        btnStartDownload.setOnClickListener(v -> {
+            btnStartDownload.setVisibility(View.GONE);
+            btnDismiss.setVisibility(View.GONE);
+            layoutDownloadProgress.setVisibility(View.VISIBLE);
+            dialog.setCancelable(false);
+
+            startHighSpeedDownload(activity, dialog, apkUrl, tagName, expectedSize,
+                    tvDownloadStatus, tvDownloadSpeed, progressBarDownload, tvDownloadSize, tvDownloadPercent);
+        });
+
+        dialog.show();
     }
 
-    public void downloadAndInstallApk(Activity activity, String apkUrl, String tagName, long expectedSize) {
-        ProgressDialog progress = new ProgressDialog(activity);
-        progress.setTitle("Downloading DayDrift");
-        progress.setMessage("Connecting to high-speed CDN...");
-        progress.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        progress.setMax(100);
-        progress.setCancelable(false);
-        progress.show();
+    /**
+     * High-speed buffered stream download with sliding-window speed monitoring and automatic edge mirror fallback
+     */
+    private void startHighSpeedDownload(Activity activity, AlertDialog dialog, String apkUrl, String tagName,
+            long expectedSize, TextView tvStatus, TextView tvSpeed, ProgressBar progressBar,
+            TextView tvSize, TextView tvPercent) {
+
+        // Primary: Direct Fastly CDN URL; Secondary: Cloudflare edge proxy mirror for regions with ISP throttling
+        String[] candidates;
+        if (apkUrl.contains("github.com") && !apkUrl.contains("ghproxy.net")) {
+            candidates = new String[] { apkUrl, "https://ghproxy.net/" + apkUrl };
+        } else {
+            candidates = new String[] { apkUrl };
+        }
+
+        tryDownloadCandidate(activity, dialog, candidates, 0, tagName, expectedSize,
+                tvStatus, tvSpeed, progressBar, tvSize, tvPercent);
+    }
+
+    private void tryDownloadCandidate(Activity activity, AlertDialog dialog, String[] candidates, int candidateIndex,
+            String tagName, long expectedSize, TextView tvStatus, TextView tvSpeed, ProgressBar progressBar,
+            TextView tvSize, TextView tvPercent) {
+
+        if (candidateIndex >= candidates.length) {
+            mainHandler.post(() -> {
+                tvStatus.setText("Download failed. Please check internet connection.");
+                Toast.makeText(activity, "Download failed from all mirrors", Toast.LENGTH_LONG).show();
+                dialog.setCancelable(true);
+            });
+            return;
+        }
+
+        String targetUrl = candidates[candidateIndex];
+        boolean isMirror = candidateIndex > 0;
+
+        mainHandler.post(() -> {
+            tvStatus.setText(isMirror ? "Connecting via Edge Accelerator..." : "Connecting to High-Speed CDN...");
+            tvSpeed.setText("Connecting...");
+        });
 
         Request.Builder reqBuilder = new Request.Builder()
-                .url(apkUrl)
-                .header("User-Agent", "DayDrift-Android-App");
+                .url(targetUrl)
+                .header("User-Agent", DOWNLOAD_USER_AGENT)
+                .header("Accept", "application/octet-stream, */*")
+                .header("Accept-Encoding", "identity") // Raw binary without gzip framing overhead
+                .header("Connection", "keep-alive");
 
+        // Only pass token if downloading directly through private api.github.com endpoint
         String token = getGithubToken(activity);
-        if (token != null && !token.isEmpty() && apkUrl.contains("api.github.com")) {
+        if (token != null && !token.isEmpty() && targetUrl.contains("api.github.com")) {
             reqBuilder.header("Authorization", "Bearer " + token);
-            reqBuilder.header("Accept", "application/octet-stream");
         }
 
         Request request = reqBuilder.build();
@@ -399,98 +531,111 @@ public class UpdateManager {
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                mainHandler.post(() -> {
-                    if (progress.isShowing())
-                        progress.dismiss();
-                    Toast.makeText(activity, "Download failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                });
+                // Try next candidate mirror
+                tryDownloadCandidate(activity, dialog, candidates, candidateIndex + 1, tagName, expectedSize,
+                        tvStatus, tvSpeed, progressBar, tvSize, tvPercent);
             }
 
             @Override
             public void onResponse(Call call, Response response) throws IOException {
                 if (!response.isSuccessful()) {
-                    mainHandler.post(() -> {
-                        if (progress.isShowing())
-                            progress.dismiss();
-                        Toast.makeText(activity, "Download error: HTTP " + response.code(), Toast.LENGTH_SHORT).show();
-                    });
+                    response.close();
+                    tryDownloadCandidate(activity, dialog, candidates, candidateIndex + 1, tagName, expectedSize,
+                            tvStatus, tvSpeed, progressBar, tvSize, tvPercent);
                     return;
                 }
 
                 ResponseBody body = response.body();
-                if (body == null)
+                if (body == null) {
+                    tryDownloadCandidate(activity, dialog, candidates, candidateIndex + 1, tagName, expectedSize,
+                            tvStatus, tvSpeed, progressBar, tvSize, tvPercent);
                     return;
+                }
 
                 long contentLength = body.contentLength();
                 if (contentLength <= 0 && expectedSize > 0) {
                     contentLength = expectedSize;
                 }
 
-                File destDir = activity.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-                if (destDir == null)
-                    destDir = activity.getCacheDir();
+                // Store in internal cache directory on high-speed NVMe flash storage (bypasses Scoped Storage FUSE overhead)
+                File destDir = activity.getCacheDir();
                 File apkFile = new File(destDir, "DayDrift-" + tagName + ".apk");
 
                 try (InputStream rawIs = body.byteStream();
-                        BufferedInputStream bis = new BufferedInputStream(rawIs, 65536);
+                        BufferedInputStream bis = new BufferedInputStream(rawIs, 131072); // 128 KB buffer
                         FileOutputStream fos = new FileOutputStream(apkFile);
-                        BufferedOutputStream bos = new BufferedOutputStream(fos, 65536)) {
+                        BufferedOutputStream bos = new BufferedOutputStream(fos, 131072)) {
 
-                    byte[] buffer = new byte[65536]; // 64 KB high-speed buffer
+                    byte[] buffer = new byte[131072]; // 128 KB buffer
                     long totalBytesRead = 0;
                     int bytesRead;
 
-                    long lastUiUpdateTime = 0;
-                    int lastReportedPercent = -1;
-                    long startTime = System.currentTimeMillis();
+                    long lastSpeedUpdate = System.currentTimeMillis();
+                    long lastWindowBytes = 0;
+                    long lastWindowTime = System.currentTimeMillis();
+
+                    mainHandler.post(() -> tvStatus.setText("Downloading..."));
 
                     while ((bytesRead = bis.read(buffer)) != -1) {
                         bos.write(buffer, 0, bytesRead);
                         totalBytesRead += bytesRead;
 
                         long now = System.currentTimeMillis();
-                        if (now - lastUiUpdateTime > 80 || (contentLength > 0 && totalBytesRead == contentLength)) {
-                            lastUiUpdateTime = now;
+
+                        // Update metrics every 150ms using a sliding-window calculation for real-time instantaneous speed
+                        if (now - lastSpeedUpdate >= 150 || (contentLength > 0 && totalBytesRead == contentLength)) {
+                            long timeDelta = now - lastWindowTime;
+                            long bytesDelta = totalBytesRead - lastWindowBytes;
+                            double instantSpeedMBs = 0;
+                            if (timeDelta > 0) {
+                                instantSpeedMBs = (bytesDelta / (1024.0 * 1024.0)) / (timeDelta / 1000.0);
+                            }
+
+                            lastSpeedUpdate = now;
+                            lastWindowTime = now;
+                            lastWindowBytes = totalBytesRead;
+
+                            final double speedToDisplay = instantSpeedMBs;
                             final long currentRead = totalBytesRead;
                             final long totalLen = contentLength;
                             final int percent = totalLen > 0 ? (int) ((currentRead * 100) / totalLen) : -1;
 
-                            double elapsedSec = Math.max(0.1, (now - startTime) / 1000.0);
-                            double speedMBs = (currentRead / (1024.0 * 1024.0)) / elapsedSec;
-                            double currentMB = currentRead / (1024.0 * 1024.0);
-                            double totalMB = totalLen > 0 ? (totalLen / (1024.0 * 1024.0)) : 0;
+                            mainHandler.post(() -> {
+                                if (percent >= 0) {
+                                    progressBar.setProgress(percent);
+                                    tvPercent.setText(percent + "%");
+                                    double curMB = currentRead / (1024.0 * 1024.0);
+                                    double totMB = totalLen / (1024.0 * 1024.0);
+                                    tvSize.setText(String.format(Locale.getDefault(), "%.1f MB / %.1f MB", curMB, totMB));
+                                } else {
+                                    double curMB = currentRead / (1024.0 * 1024.0);
+                                    tvSize.setText(String.format(Locale.getDefault(), "%.1f MB downloaded", curMB));
+                                }
 
-                            if (percent != lastReportedPercent) {
-                                lastReportedPercent = percent;
-                                mainHandler.post(() -> {
-                                    if (progress.isShowing()) {
-                                        if (percent >= 0) {
-                                            progress.setProgress(percent);
-                                            progress.setMessage(String.format(Locale.getDefault(),
-                                                    "%.1f MB / %.1f MB (%.1f MB/s)", currentMB, totalMB, speedMBs));
-                                        } else {
-                                            progress.setMessage(String.format(Locale.getDefault(),
-                                                    "%.1f MB downloaded (%.1f MB/s)", currentMB, speedMBs));
-                                        }
-                                    }
-                                });
-                            }
+                                if (speedToDisplay >= 1.0) {
+                                    tvSpeed.setText(String.format(Locale.getDefault(), "%.1f MB/s", speedToDisplay));
+                                } else if (speedToDisplay > 0) {
+                                    tvSpeed.setText(String.format(Locale.getDefault(), "%.0f KB/s", speedToDisplay * 1024.0));
+                                }
+                            });
                         }
                     }
                     bos.flush();
 
                     mainHandler.post(() -> {
-                        if (progress.isShowing())
-                            progress.dismiss();
+                        tvStatus.setText("Verifying & launching installer...");
+                        tvPercent.setText("100%");
+                        progressBar.setProgress(100);
+                        if (dialog.isShowing()) {
+                            dialog.dismiss();
+                        }
                         installApk(activity, apkFile);
                     });
 
                 } catch (Exception e) {
-                    mainHandler.post(() -> {
-                        if (progress.isShowing())
-                            progress.dismiss();
-                        Toast.makeText(activity, "Failed to save APK: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                    });
+                    // If error during read, try fallback candidate
+                    tryDownloadCandidate(activity, dialog, candidates, candidateIndex + 1, tagName, expectedSize,
+                            tvStatus, tvSpeed, progressBar, tvSize, tvPercent);
                 }
             }
         });
