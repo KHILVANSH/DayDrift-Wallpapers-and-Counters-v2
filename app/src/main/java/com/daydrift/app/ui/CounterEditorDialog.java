@@ -4,6 +4,7 @@ import android.app.DatePickerDialog;
 import android.app.Dialog;
 import android.app.TimePickerDialog;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -253,13 +254,22 @@ public class CounterEditorDialog {
 
         // 8. Font Selection Button
         MaterialButton btnFont = view.findViewById(R.id.btnSelectFont);
+        Typeface initialTf = FontManager.getInstance().getTypeface(model.fontFamily);
+        if (initialTf != null) {
+            btnFont.setTypeface(initialTf);
+        }
         btnFont.setText("Typography Font: " + model.fontFamily);
         btnFont.setOnClickListener(v -> {
             FontPickerBottomSheet sheet = new FontPickerBottomSheet();
             sheet.setSelectedFont(model.fontFamily);
+            sheet.setCurrentTitle(model.title != null && !model.title.trim().isEmpty() ? model.title : "Event Title");
             sheet.setListener((fontKey, fontName) -> {
                 model.fontFamily = fontKey;
                 btnFont.setText("Typography Font: " + fontName);
+                Typeface tf = FontManager.getInstance().getTypeface(fontKey);
+                if (tf != null) {
+                    btnFont.setTypeface(tf);
+                }
                 refreshPreview.run();
             });
             sheet.show(activity.getSupportFragmentManager(), "font_picker");

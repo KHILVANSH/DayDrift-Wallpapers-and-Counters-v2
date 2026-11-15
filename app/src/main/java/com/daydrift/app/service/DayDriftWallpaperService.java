@@ -119,6 +119,7 @@ public class DayDriftWallpaperService extends WallpaperService {
             @Override
             public void run() {
                 updateEngineState();
+                new com.daydrift.app.data.UpdateManager().checkSilentBackgroundUpdate(getApplicationContext());
             }
         };
 
@@ -164,6 +165,7 @@ public class DayDriftWallpaperService extends WallpaperService {
                     }
                 }
                 updateEngineState();
+                new com.daydrift.app.data.UpdateManager().checkSilentBackgroundUpdate(getApplicationContext());
             } else {
                 handler.removeCallbacks(canvasDrawRunnable);
                 handler.removeCallbacks(videoDrawRunnable);

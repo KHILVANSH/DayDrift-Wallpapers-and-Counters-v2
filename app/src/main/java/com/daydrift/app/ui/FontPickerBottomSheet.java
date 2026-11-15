@@ -1,5 +1,6 @@
 package com.daydrift.app.ui;
 
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.Editable;
@@ -7,6 +8,8 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -28,6 +31,10 @@ public class FontPickerBottomSheet extends BottomSheetDialogFragment {
     private OnFontSelectedListener listener;
     private FontAdapter adapter;
     private String selectedFontKey;
+    private String currentTitle = "New Year Countdown 🌴";
+    private String activeCategory = FontManager.CAT_ALL;
+    private String currentQuery = "";
+    private LinearLayout layoutCategoryChips;
 
     public void setListener(OnFontSelectedListener listener) {
         this.listener = listener;
@@ -37,50 +44,126 @@ public class FontPickerBottomSheet extends BottomSheetDialogFragment {
         this.selectedFontKey = fontKey;
     }
 
+    public void setCurrentTitle(String title) {
+        if (title != null && !title.trim().isEmpty()) {
+            this.currentTitle = title.trim();
+        }
+    }
+
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
+            @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.bottom_sheet_font_picker, container, false);
 
         RecyclerView rv = view.findViewById(R.id.recyclerFonts);
         rv.setLayoutManager(new LinearLayoutManager(getContext()));
         rv.setHasFixedSize(true);
-        // Optimize view recycling and memory footprint
-        rv.setItemViewCacheSize(10);
+        rv.setItemViewCacheSize(15);
 
-        List<FontManager.FontItem> fontList = new ArrayList<>(FontManager.getInstance().getAllFonts());
-        adapter = new FontAdapter(fontList, selectedFontKey, (fontKey, fontName) -> {
-            if (listener != null) listener.onFontSelected(fontKey, fontName);
+        List<FontManager.FontItem> initialFonts = FontManager.getInstance().filterFonts(activeCategory, currentQuery);
+        adapter = new FontAdapter(initialFonts, selectedFontKey, currentTitle, (fontKey, fontName) -> {
+            if (listener != null)
+                listener.onFontSelected(fontKey, fontName);
             dismiss();
         });
         rv.setAdapter(adapter);
 
+        // Update badge count
+        TextView tvCountBadge = view.findViewById(R.id.tvFontCountBadge);
+        if (tvCountBadge != null) {
+            tvCountBadge.setText(FontManager.getInstance().getAllFonts().size() + "+ Typefaces");
+        }
+
+        // Setup Category Filter Chips
+        layoutCategoryChips = view.findViewById(R.id.layoutCategoryChips);
+        setupCategoryChips();
+
+        // Setup Search Input
         TextInputEditText searchInput = view.findViewById(R.id.inputSearchFont);
         searchInput.addTextChangedListener(new TextWatcher() {
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                String query = s != null ? s.toString() : "";
-                adapter.updateList(FontManager.getInstance().searchFonts(query));
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
             }
 
             @Override
-            public void afterTextChanged(Editable s) {}
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                currentQuery = s != null ? s.toString() : "";
+                applyFilters();
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
         });
 
         return view;
     }
 
+    private void setupCategoryChips() {
+        if (layoutCategoryChips == null || getContext() == null)
+            return;
+        layoutCategoryChips.removeAllViews();
+
+        List<String> categories = FontManager.getInstance().getCategories();
+        for (String cat : categories) {
+            TextView chip = new TextView(getContext());
+            chip.setText(cat);
+            chip.setTextSize(12);
+            chip.setPadding(dpToPx(14), dpToPx(7), dpToPx(14), dpToPx(7));
+
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.setMarginEnd(dpToPx(8));
+            chip.setLayoutParams(lp);
+
+            updateChipVisual(chip, cat.equalsIgnoreCase(activeCategory));
+
+            chip.setOnClickListener(v -> {
+                activeCategory = cat;
+                setupCategoryChips(); // Re-render chip states
+                applyFilters();
+            });
+
+            layoutCategoryChips.addView(chip);
+        }
+    }
+
+    private void updateChipVisual(TextView chip, boolean isActive) {
+        if (isActive) {
+            chip.setBackgroundResource(R.drawable.bg_pill_active);
+            chip.setTextColor(Color.parseColor("#0B0E14"));
+            chip.setTypeface(Typeface.DEFAULT_BOLD);
+        } else {
+            chip.setBackgroundResource(R.drawable.bg_pill);
+            chip.setTextColor(Color.parseColor("#94A3B8"));
+            chip.setTypeface(Typeface.DEFAULT);
+        }
+    }
+
+    private void applyFilters() {
+        if (adapter != null) {
+            List<FontManager.FontItem> filtered = FontManager.getInstance().filterFonts(activeCategory, currentQuery);
+            adapter.updateList(filtered);
+        }
+    }
+
+    private int dpToPx(int dp) {
+        float density = getResources().getDisplayMetrics().density;
+        return Math.round(dp * density);
+    }
+
     private static class FontAdapter extends RecyclerView.Adapter<FontAdapter.FontViewHolder> {
         private final List<FontManager.FontItem> fonts = new ArrayList<>();
         private final String selectedKey;
+        private final String previewTitle;
         private final OnFontSelectedListener onSelect;
 
-        FontAdapter(List<FontManager.FontItem> initialFonts, String selectedKey, OnFontSelectedListener onSelect) {
+        FontAdapter(List<FontManager.FontItem> initialFonts, String selectedKey, String previewTitle,
+                OnFontSelectedListener onSelect) {
             this.fonts.addAll(initialFonts);
             this.selectedKey = selectedKey;
+            this.previewTitle = previewTitle;
             this.onSelect = onSelect;
         }
 
@@ -106,21 +189,31 @@ public class FontPickerBottomSheet extends BottomSheetDialogFragment {
             // Lazy load the typeface on-demand from LRU cache
             Typeface tf = FontManager.getInstance().getTypeface(item.id);
             if (tf != null) {
-                holder.tvPreview.setTypeface(tf);
                 holder.tvName.setTypeface(tf);
+                holder.tvTitlePreview.setTypeface(tf);
+                holder.tvDigitsPreview.setTypeface(tf);
+                holder.tvAlphabetPreview.setTypeface(tf);
             } else {
-                holder.tvPreview.setTypeface(Typeface.DEFAULT_BOLD);
                 holder.tvName.setTypeface(Typeface.DEFAULT_BOLD);
+                holder.tvTitlePreview.setTypeface(Typeface.DEFAULT_BOLD);
+                holder.tvDigitsPreview.setTypeface(Typeface.DEFAULT_BOLD);
+                holder.tvAlphabetPreview.setTypeface(Typeface.DEFAULT);
             }
 
-            // Realistic countdown numbers preview
-            holder.tvPreview.setText("04 : 18 : 29 : 53");
+            // Bind Event Title & Digits Preview
+            holder.tvTitlePreview.setText(previewTitle);
+            holder.tvDigitsPreview.setText("04 : 18 : 29 : 53");
 
-            boolean isSelected = selectedKey != null && selectedKey.equalsIgnoreCase(item.id);
+            boolean isSelected = selectedKey != null && (selectedKey.equalsIgnoreCase(item.id)
+                    || (item.assetFileName != null && selectedKey.equalsIgnoreCase(item.assetFileName))
+                    || selectedKey.equalsIgnoreCase(item.name));
+
             if (isSelected) {
                 holder.itemView.setBackgroundResource(R.drawable.bg_card_selected);
+                holder.ivSelectedCheck.setVisibility(View.VISIBLE);
             } else {
                 holder.itemView.setBackgroundResource(R.drawable.bg_card);
+                holder.ivSelectedCheck.setVisibility(View.GONE);
             }
 
             holder.itemView.setOnClickListener(v -> {
@@ -134,8 +227,10 @@ public class FontPickerBottomSheet extends BottomSheetDialogFragment {
         public void onViewRecycled(@NonNull FontViewHolder holder) {
             super.onViewRecycled(holder);
             // Free and unbind view resources when scrolled offscreen
-            holder.tvPreview.setTypeface(Typeface.DEFAULT);
             holder.tvName.setTypeface(Typeface.DEFAULT);
+            holder.tvTitlePreview.setTypeface(Typeface.DEFAULT);
+            holder.tvDigitsPreview.setTypeface(Typeface.DEFAULT);
+            holder.tvAlphabetPreview.setTypeface(Typeface.DEFAULT);
         }
 
         @Override
@@ -146,13 +241,19 @@ public class FontPickerBottomSheet extends BottomSheetDialogFragment {
         static class FontViewHolder extends RecyclerView.ViewHolder {
             final TextView tvName;
             final TextView tvCategory;
-            final TextView tvPreview;
+            final TextView tvTitlePreview;
+            final TextView tvDigitsPreview;
+            final TextView tvAlphabetPreview;
+            final ImageView ivSelectedCheck;
 
             FontViewHolder(@NonNull View itemView) {
                 super(itemView);
                 tvName = itemView.findViewById(R.id.tvFontName);
                 tvCategory = itemView.findViewById(R.id.tvFontCategory);
-                tvPreview = itemView.findViewById(R.id.tvFontPreview);
+                tvTitlePreview = itemView.findViewById(R.id.tvTitlePreview);
+                tvDigitsPreview = itemView.findViewById(R.id.tvDigitsPreview);
+                tvAlphabetPreview = itemView.findViewById(R.id.tvAlphabetPreview);
+                ivSelectedCheck = itemView.findViewById(R.id.ivSelectedCheck);
             }
         }
     }

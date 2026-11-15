@@ -1,12 +1,15 @@
 package com.daydrift.app.ui;
 
+import android.Manifest;
 import android.app.WallpaperManager;
 import android.content.ComponentName;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.SurfaceTexture;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.view.Surface;
@@ -28,6 +31,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.daydrift.app.R;
 import com.daydrift.app.data.CounterRepository;
 import com.daydrift.app.data.UnsplashService;
+import com.daydrift.app.data.UpdateManager;
 import com.daydrift.app.data.WallpaperRepository;
 import com.daydrift.app.model.CounterModel;
 import com.daydrift.app.model.GradientConfig;
@@ -83,6 +87,7 @@ public class MainActivity extends AppCompatActivity {
 
     private ActivityResultLauncher<String> photoPickerLauncher;
     private ActivityResultLauncher<String> videoPickerLauncher;
+    private ActivityResultLauncher<String> notificationPermissionLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,9 +121,41 @@ public class MainActivity extends AppCompatActivity {
                 initStudioDraft();
             }
         }));
+
+        // Request Notification permission on Android 13+ (API 33+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+            }
+        }
+
+        handleUpdateIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleUpdateIntent(intent);
+    }
+
+    private void handleUpdateIntent(Intent intent) {
+        if (intent != null && intent.getBooleanExtra(UpdateManager.EXTRA_SHOW_UPDATE_DIALOG, false)) {
+            String releaseName = intent.getStringExtra(UpdateManager.EXTRA_RELEASE_NAME);
+            String releaseTag = intent.getStringExtra(UpdateManager.EXTRA_RELEASE_TAG);
+            String releaseNotes = intent.getStringExtra(UpdateManager.EXTRA_RELEASE_NOTES);
+            String releaseUrl = intent.getStringExtra(UpdateManager.EXTRA_RELEASE_URL);
+            long releaseSize = intent.getLongExtra(UpdateManager.EXTRA_RELEASE_SIZE, 0);
+            if (releaseUrl != null && !releaseUrl.isEmpty()) {
+                new UpdateManager().showUpdateDialog(this, releaseName != null ? releaseName : releaseTag,
+                        releaseTag != null ? releaseTag : "Update", releaseNotes, releaseUrl, releaseSize);
+            }
+        }
     }
 
     private void initPickers() {
+        notificationPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(), isGranted -> {});
         photoPickerLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
             if (uri != null) {
                 final InputStream in;

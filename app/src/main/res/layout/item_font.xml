@@ -5,15 +5,16 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:background="@drawable/bg_card"
-    android:padding="14dp"
-    android:layout_marginBottom="10dp">
+    android:padding="16dp"
+    android:layout_marginBottom="12dp">
 
+    <!-- Header: Font Name, Category Pill, Selected Check -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginBottom="8dp">
+        android:layout_marginBottom="12dp">
 
         <TextView
             android:id="@+id/tvFontName"
@@ -22,30 +23,80 @@
             android:layout_weight="1"
             android:text="Font Name"
             android:textColor="@color/text_primary"
-            android:textSize="15sp"
+            android:textSize="16sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvFontCategory"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Sans"
+            android:text="Modern Sans"
             android:textColor="@color/primary"
             android:textSize="11sp"
             android:background="@drawable/bg_pill"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
             android:paddingTop="3dp"
-            android:paddingBottom="3dp" />
+            android:paddingBottom="3dp"
+            android:layout_marginEnd="8dp" />
+
+        <ImageView
+            android:id="@+id/ivSelectedCheck"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/ic_check_circle_glow"
+            android:visibility="gone" />
     </LinearLayout>
 
+    <!-- Event Title Preview -->
     <TextView
-        android:id="@+id/tvFontPreview"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="EVENT TITLE PREVIEW"
+        android:textColor="@color/text_muted"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.08" />
+
+    <TextView
+        android:id="@+id/tvTitlePreview"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="04 : 18 : 29 : 53  DayDrift"
+        android:text="Summer Festival 2026 🌴"
         android:textColor="@color/text_primary"
-        android:textSize="22sp" />
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginTop="2dp"
+        android:layout_marginBottom="10dp" />
+
+    <!-- Countdown Digits Preview -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="COUNTDOWN DIGITS PREVIEW"
+        android:textColor="@color/text_muted"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.08" />
+
+    <TextView
+        android:id="@+id/tvDigitsPreview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="04 : 18 : 29 : 53"
+        android:textColor="@color/text_primary"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginTop="2dp"
+        android:layout_marginBottom="6dp" />
+
+    <!-- Glyphs Sample -->
+    <TextView
+        android:id="@+id/tvAlphabetPreview"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Aa Bb Gg Qq · 0 1 2 3 4 5 6 7 8 9"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp" />
 
 </LinearLayout>
-

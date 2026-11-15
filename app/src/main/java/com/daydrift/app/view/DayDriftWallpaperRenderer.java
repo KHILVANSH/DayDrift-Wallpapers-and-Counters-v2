@@ -870,8 +870,8 @@ public class DayDriftWallpaperRenderer {
         // Header technical text
         String targetText = hasTitle ? ("// TARGET: " + counter.title.toUpperCase(Locale.getDefault()) + " //")
                 : "// SYS.TARGET: ACTIVE //";
-        tagPaint.setTextSize(spToPx(11));
-        canvas.drawText(targetText, 0, -hudH / 2 + spToPx(24), tagPaint);
+        titlePaint.setTextSize(spToPx(12));
+        drawShaderText(canvas, targetText, 0, -hudH / 2 + spToPx(24), titlePaint, counter.titleGradient);
 
         // Center HUD Countdown Numbers
         countPaint.setTextSize(spToPx(28));

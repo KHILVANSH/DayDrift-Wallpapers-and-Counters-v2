@@ -370,14 +370,17 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSelectFont"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="52dp"
                 android:text="Typography Font: Sans-Serif Bold (100+ Available)"
                 android:textAllCaps="false"
                 android:backgroundTint="@color/bg_surface_elevated"
                 android:textColor="@color/text_primary"
+                app:icon="@drawable/ic_font"
+                app:iconTint="@color/primary"
+                app:iconGravity="textStart"
                 app:strokeColor="@color/border_card"
                 app:strokeWidth="1dp"
-                app:cornerRadius="12dp" />
+                app:cornerRadius="14dp" />
         </LinearLayout>
 
         <!-- Card 4: Countdown Colors & Gradients -->
