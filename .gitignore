@@ -20,3 +20,8 @@ captures/
 archive_legacy/
 
 .vscode/
+.env
+.env.local
+*serviceaccount*.json
+*gserviceaccount*.json
+credentials.json
