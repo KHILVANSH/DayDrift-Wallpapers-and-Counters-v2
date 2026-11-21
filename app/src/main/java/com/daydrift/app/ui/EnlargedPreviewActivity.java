@@ -80,9 +80,17 @@ public class EnlargedPreviewActivity extends AppCompatActivity {
         }
         if (counterWorkingCopy == null) {
             CounterModel original = counterRepo.getActiveWallpaperCounter();
+            if (original == null) {
+                original = counterRepo.getPrimaryOrFirstCounter();
+            }
             if (original != null) {
                 counterWorkingCopy = CounterModel.fromJsonObject(original.toJsonObject());
+            } else {
+                counterWorkingCopy = new CounterModel("DayDrift Launch", System.currentTimeMillis() + (30L * 24 * 3600 * 1000), "🚀");
             }
+        }
+        if (counterWorkingCopy != null) {
+            counterWorkingCopy.isVisibleOnWallpaper = true;
         }
 
         videoTextureView = findViewById(R.id.enlargedVideoTextureView);

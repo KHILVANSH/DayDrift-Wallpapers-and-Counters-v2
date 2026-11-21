@@ -384,9 +384,10 @@ public class VideoWallpaperRenderer {
         GLES20.glDisableVertexAttribArray(texCoordHandle);
 
         // 2. Draw Live Countdown Overlay
-        if (counter != null && counter.isVisibleOnWallpaper && overlayCanvas != null && overlayBitmap != null) {
+        boolean showCounter = (config == null || config.showCountersOnWallpaper) && counter != null && counter.isVisibleOnWallpaper;
+        if (showCounter && overlayCanvas != null && overlayBitmap != null) {
             overlayCanvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
-            counterRenderer.render(overlayCanvas, surfaceWidth, surfaceHeight, null, counter, currentTime);
+            counterRenderer.renderCounter(overlayCanvas, surfaceWidth, surfaceHeight, counter, currentTime);
 
             GLES20.glEnable(GLES20.GL_BLEND);
             GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA);

@@ -76,7 +76,6 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvVideoStatus;
     private SwitchMaterial switchRestartVideoOnWake;
     private SwitchMaterial switchCountersTabMaster;
-    private SwitchMaterial switchMasterShowCounters;
     private TextView tvMasterCounterStatus;
     private boolean isUpdatingMasterToggle = false;
 
@@ -337,9 +336,20 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onSelectWallpaper(CounterModel counter) {
-                counterRepo.toggleWallpaperCounter(counter.id);
-                loadCounters();
-                initStudioDraft();
+                if (counter.isVisibleOnWallpaper) {
+                    Toast.makeText(MainActivity.this, "Active on wallpaper: " + counter.title, Toast.LENGTH_SHORT).show();
+                } else {
+                    counterRepo.setActiveWallpaperCounter(counter.id);
+                    WallpaperConfig config = wallpaperRepo.getConfig();
+                    if (!config.showCountersOnWallpaper) {
+                        config.showCountersOnWallpaper = true;
+                        wallpaperRepo.saveConfig(config);
+                        updateMasterToggleViews(true);
+                    }
+                    Toast.makeText(MainActivity.this, "✓ " + counter.title + " set as wallpaper counter!", Toast.LENGTH_SHORT).show();
+                    loadCounters();
+                    initStudioDraft();
+                }
             }
         });
         rvCounters.setAdapter(counterAdapter);
@@ -423,18 +433,9 @@ public class MainActivity extends AppCompatActivity {
 
         switchCountersTabMaster = findViewById(R.id.switchCountersTabMaster);
         tvMasterCounterStatus = findViewById(R.id.tvMasterCounterStatus);
-        switchMasterShowCounters = findViewById(R.id.switchMasterShowCounters);
 
         if (switchCountersTabMaster != null) {
             switchCountersTabMaster.setOnCheckedChangeListener((btn, isChecked) -> {
-                if (!isUpdatingMasterToggle) {
-                    setMasterCounterVisibility(isChecked);
-                }
-            });
-        }
-
-        if (switchMasterShowCounters != null) {
-            switchMasterShowCounters.setOnCheckedChangeListener((btn, isChecked) -> {
                 if (!isUpdatingMasterToggle) {
                     setMasterCounterVisibility(isChecked);
                 }
@@ -787,10 +788,21 @@ public class MainActivity extends AppCompatActivity {
             workingWallpaperConfig.showCountersOnWallpaper = visible;
         }
 
+        if (visible) {
+            CounterModel active = counterRepo.getActiveWallpaperCounter();
+            if (active == null) {
+                CounterModel fallback = counterRepo.getPrimaryOrFirstCounter();
+                if (fallback != null) {
+                    counterRepo.setActiveWallpaperCounter(fallback.id);
+                    loadCounters();
+                }
+            }
+        }
+
         updateMasterToggleViews(visible);
         updateStudioPreview();
 
-        Toast.makeText(this, visible ? "Wallpaper counters: Visible" : "Wallpaper counters: Hidden", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, visible ? "Live Wallpaper Counter: Enabled" : "Live Wallpaper Counter: Hidden (Wallpaper Only)", Toast.LENGTH_SHORT).show();
     }
 
     private void updateMasterToggleViews(boolean visible) {
@@ -799,13 +811,10 @@ public class MainActivity extends AppCompatActivity {
             if (switchCountersTabMaster != null) {
                 switchCountersTabMaster.setChecked(visible);
             }
-            if (switchMasterShowCounters != null) {
-                switchMasterShowCounters.setChecked(visible);
-            }
             if (tvMasterCounterStatus != null) {
                 tvMasterCounterStatus.setText(visible
                         ? "Visible on lock screen & home screen"
-                        : "Hidden from wallpaper (Counters saved)");
+                        : "Hidden from wallpaper (Wallpaper only mode)");
             }
         } finally {
             isUpdatingMasterToggle = false;
@@ -817,9 +826,15 @@ public class MainActivity extends AppCompatActivity {
         workingWallpaperConfig = WallpaperConfig.fromJsonObject(savedConfig.toJsonObject());
 
         CounterModel savedCounter = counterRepo.getActiveWallpaperCounter();
+        if (savedCounter == null) {
+            savedCounter = counterRepo.getPrimaryOrFirstCounter();
+        }
         if (savedCounter != null) {
             workingCounterModel = CounterModel.fromJsonObject(savedCounter.toJsonObject());
+        } else {
+            workingCounterModel = new CounterModel("DayDrift Launch", System.currentTimeMillis() + (30L * 24 * 3600 * 1000), "🚀");
         }
+        workingCounterModel.isVisibleOnWallpaper = true;
 
         updateStudioPanelsAndControls();
         updateStudioPreview();

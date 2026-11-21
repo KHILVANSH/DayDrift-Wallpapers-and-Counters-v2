@@ -81,6 +81,24 @@ public class CounterRepository {
         return null;
     }
 
+    public synchronized CounterModel getPrimaryOrFirstCounter() {
+        CounterModel active = getActiveWallpaperCounter();
+        if (active != null) {
+            return active;
+        }
+        if (!cachedCounters.isEmpty()) {
+            return cachedCounters.get(0);
+        }
+        return null;
+    }
+
+    public synchronized void setActiveWallpaperCounter(String id) {
+        for (CounterModel model : cachedCounters) {
+            model.isVisibleOnWallpaper = model.id.equals(id);
+        }
+        saveToPrefs();
+    }
+
     public synchronized void saveCounter(CounterModel counter) {
         if (counter.isVisibleOnWallpaper) {
             for (CounterModel m : cachedCounters) {

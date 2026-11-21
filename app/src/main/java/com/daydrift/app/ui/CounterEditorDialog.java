@@ -132,15 +132,6 @@ public class CounterEditorDialog {
             public void afterTextChanged(Editable s) {}
         });
 
-        SwitchMaterial switchShowOnWallpaper = view.findViewById(R.id.switchShowOnWallpaper);
-        if (switchShowOnWallpaper != null) {
-            switchShowOnWallpaper.setChecked(model.isVisibleOnWallpaper);
-            switchShowOnWallpaper.setOnCheckedChangeListener((btn, isChecked) -> {
-                model.isVisibleOnWallpaper = isChecked;
-                refreshPreview.run();
-            });
-        }
-
         SwitchMaterial switchShowTitle = view.findViewById(R.id.switchShowTitle);
         switchShowTitle.setChecked(model.showTitle);
         switchShowTitle.setOnCheckedChangeListener((btn, isChecked) -> {
@@ -442,10 +433,24 @@ public class CounterEditorDialog {
         });
 
         // 10. Cancel & Save
+        com.google.android.material.checkbox.MaterialCheckBox cbSetActive = view.findViewById(R.id.cbSetActiveWallpaper);
+        if (cbSetActive != null) {
+            cbSetActive.setChecked(model.isVisibleOnWallpaper || existingCounter == null);
+        }
+
         view.findViewById(R.id.btnCancel).setOnClickListener(v -> dialog.dismiss());
         view.findViewById(R.id.btnSave).setOnClickListener(v -> {
             String title = inputTitle.getText() != null ? inputTitle.getText().toString().trim() : "";
             model.title = title.isEmpty() ? "Countdown" : title;
+            boolean makeActive = cbSetActive != null && cbSetActive.isChecked();
+            model.isVisibleOnWallpaper = makeActive;
+            if (makeActive) {
+                WallpaperConfig wc = WallpaperRepository.getInstance(activity).getConfig();
+                if (!wc.showCountersOnWallpaper) {
+                    wc.showCountersOnWallpaper = true;
+                    WallpaperRepository.getInstance(activity).saveConfig(wc);
+                }
+            }
             CounterRepository.getInstance(activity).saveCounter(model);
             if (listener != null) listener.onSave(model);
             dialog.dismiss();

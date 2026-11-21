@@ -82,10 +82,29 @@ public class CounterAdapter extends RecyclerView.Adapter<CounterAdapter.ViewHold
             }
         }
 
-        holder.switchWallpaper.setOnCheckedChangeListener(null);
-        holder.switchWallpaper.setChecked(c.isVisibleOnWallpaper);
-        holder.switchWallpaper.setOnCheckedChangeListener((btn, isChecked) -> {
+        if (c.isVisibleOnWallpaper) {
+            holder.btnWallpaperStatus.setText("✓ Active on Wallpaper");
+            holder.btnWallpaperStatus.setBackgroundTintList(android.content.res.ColorStateList.valueOf(context.getColor(R.color.primary)));
+            holder.btnWallpaperStatus.setTextColor(context.getColor(R.color.bg_dark));
+            holder.btnWallpaperStatus.setStrokeWidth(0);
+        } else {
+            holder.btnWallpaperStatus.setText("Set as Wallpaper");
+            holder.btnWallpaperStatus.setBackgroundTintList(android.content.res.ColorStateList.valueOf(context.getColor(R.color.bg_surface_elevated)));
+            holder.btnWallpaperStatus.setTextColor(context.getColor(R.color.text_secondary));
+            holder.btnWallpaperStatus.setStrokeColor(android.content.res.ColorStateList.valueOf(context.getColor(R.color.border_card)));
+            holder.btnWallpaperStatus.setStrokeWidth((int) (1 * context.getResources().getDisplayMetrics().density));
+        }
+
+        holder.btnWallpaperStatus.setOnClickListener(v -> {
             if (listener != null) listener.onSelectWallpaper(c);
+        });
+
+        holder.itemView.setOnClickListener(v -> {
+            if (!c.isVisibleOnWallpaper) {
+                if (listener != null) listener.onSelectWallpaper(c);
+            } else {
+                if (listener != null) listener.onEdit(c);
+            }
         });
 
         holder.btnEdit.setOnClickListener(v -> {
@@ -108,7 +127,7 @@ public class CounterAdapter extends RecyclerView.Adapter<CounterAdapter.ViewHold
         final TextView modeBadge;
         final TextView targetDate;
         final TextView remaining;
-        final com.google.android.material.switchmaterial.SwitchMaterial switchWallpaper;
+        final com.google.android.material.button.MaterialButton btnWallpaperStatus;
         final ImageButton btnEdit;
         final ImageButton btnDelete;
 
@@ -119,7 +138,7 @@ public class CounterAdapter extends RecyclerView.Adapter<CounterAdapter.ViewHold
             modeBadge = v.findViewById(R.id.itemModeBadge);
             targetDate = v.findViewById(R.id.itemTargetDate);
             remaining = v.findViewById(R.id.itemRemaining);
-            switchWallpaper = v.findViewById(R.id.switchShowOnWallpaper);
+            btnWallpaperStatus = v.findViewById(R.id.btnWallpaperStatus);
             btnEdit = v.findViewById(R.id.btnEdit);
             btnDelete = v.findViewById(R.id.btnDelete);
         }

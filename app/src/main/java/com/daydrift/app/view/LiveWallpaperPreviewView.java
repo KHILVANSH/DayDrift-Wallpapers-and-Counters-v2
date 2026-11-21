@@ -2,6 +2,10 @@ package com.daydrift.app.view;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Rect;
+import android.graphics.RectF;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.AttributeSet;
@@ -30,6 +34,12 @@ public class LiveWallpaperPreviewView extends View {
     private DayDriftWallpaperRenderer renderer;
     private WallpaperConfig wallpaperConfig;
     private CounterModel counterModel;
+
+    private final RectF badgeRect = new RectF();
+    private final Paint badgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint badgeBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint badgeStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Rect textBounds = new Rect();
 
     private boolean interactive = true;
     private OnTransformChangeListener transformListener;
@@ -167,6 +177,7 @@ public class LiveWallpaperPreviewView extends View {
                 CounterModel cardModel = CounterModel.fromJsonObject(counterModel.toJsonObject());
                 cardModel.xOffset = 0.5f;
                 cardModel.yOffset = 0.5f;
+                cardModel.isVisibleOnWallpaper = true; // Always visible in editor card preview
 
                 float density = getContext().getResources().getDisplayMetrics().density;
                 float heightDp = h / density;
@@ -196,9 +207,58 @@ public class LiveWallpaperPreviewView extends View {
             canvas.translate(left, top);
             canvas.scale(uniformScale, uniformScale); // UNIFORM SCALE ON BOTH X AND Y! ZERO STRETCHING!
             canvas.clipRect(0, 0, screenW, screenH);
-            renderer.render(canvas, screenW, screenH, wallpaperConfig, counterModel, currentTime);
+
+            // 1. Render Background
+            if (wallpaperConfig != null) {
+                renderer.renderBackground(canvas, screenW, screenH, wallpaperConfig);
+            }
+
+            // 2. Render Active / Draft Counter (always visible in phone mockup preview so user can touch & position)
+            if (counterModel != null) {
+                CounterModel previewModel = CounterModel.fromJsonObject(counterModel.toJsonObject());
+                previewModel.isVisibleOnWallpaper = true;
+                renderer.renderCounter(canvas, screenW, screenH, previewModel, currentTime);
+            }
+
+            // 3. If master toggle is currently OFF, draw an elegant subtle status pill overlay
+            if (wallpaperConfig != null && !wallpaperConfig.showCountersOnWallpaper) {
+                drawDisabledBadge(canvas, screenW, screenH);
+            }
+
             canvas.restore();
         }
+    }
+
+    private void drawDisabledBadge(Canvas canvas, int width, int height) {
+        String text = "⏸  Counter Paused on Wallpaper (Toggle is OFF)";
+        badgePaint.setTextSize(width * 0.033f);
+        badgePaint.getTextBounds(text, 0, text.length(), textBounds);
+
+        float textW = badgePaint.measureText(text);
+        float padX = width * 0.04f;
+        float padY = height * 0.012f;
+        float badgeW = textW + padX * 2;
+        float badgeH = (textBounds.height() > 0 ? textBounds.height() : badgePaint.getTextSize()) + padY * 2;
+
+        float badgeX = (width - badgeW) / 2.0f;
+        float badgeY = height * 0.88f;
+
+        badgeRect.set(badgeX, badgeY, badgeX + badgeW, badgeY + badgeH);
+        badgeBgPaint.setColor(android.graphics.Color.parseColor("#E60B0E14"));
+        badgeBgPaint.setStyle(Paint.Style.FILL);
+        canvas.drawRoundRect(badgeRect, badgeH / 2.0f, badgeH / 2.0f, badgeBgPaint);
+
+        badgeStrokePaint.setColor(android.graphics.Color.parseColor("#475569"));
+        badgeStrokePaint.setStyle(Paint.Style.STROKE);
+        badgeStrokePaint.setStrokeWidth(2f);
+        canvas.drawRoundRect(badgeRect, badgeH / 2.0f, badgeH / 2.0f, badgeStrokePaint);
+
+        badgePaint.setColor(android.graphics.Color.parseColor("#94A3B8"));
+        badgePaint.setStyle(Paint.Style.FILL);
+        badgePaint.setTextAlign(Paint.Align.CENTER);
+        Paint.FontMetrics fm = badgePaint.getFontMetrics();
+        float baseline = badgeRect.centerY() - (fm.ascent + fm.descent) / 2.0f;
+        canvas.drawText(text, badgeRect.centerX(), baseline, badgePaint);
     }
 
     @Override
