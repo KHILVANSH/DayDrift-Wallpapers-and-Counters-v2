@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Capsule outline -->
+    <path
+        android:pathData="M7,6 H17 A6,6 0 0,1 17,18 H7 A6,6 0 0,1 7,6 Z"
+        android:strokeColor="#21C998"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round" />
+    <!-- Pulse dot -->
+    <path
+        android:pathData="M6.5,12 m-1.5,0 a1.5,1.5 0 1,0 3,0 a1.5,1.5 0 1,0 -3,0"
+        android:fillColor="#06B6D4" />
+    <!-- Central digits line -->
+    <path
+        android:pathData="M11,10 L11,14 M14,10 L14,14"
+        android:strokeColor="#F8FAFC"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+</vector>

@@ -389,13 +389,23 @@ public class UpdateManager {
 
             if (trimmed.startsWith("### ")) {
                 String title = trimmed.substring(4).replaceAll("\\*\\*", "");
-                html.append("<br><b><font color=\"#21C998\">").append(title).append("</font></b><br>");
+                html.append("<br><font color=\"#21C998\"><b>▶ ").append(title.toUpperCase(Locale.ROOT)).append("</b></font><br>");
             } else if (trimmed.startsWith("#### ")) {
                 String title = trimmed.substring(5).replaceAll("\\*\\*", "");
-                html.append("<br><b><font color=\"#93C5FD\">").append(title).append("</font></b><br>");
+                html.append("<br><font color=\"#06B6D4\"><b>• ").append(title).append("</b></font><br>");
             } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
                 String item = trimmed.substring(2);
                 item = item.replaceAll("\\*\\*(.*?)\\*\\*", "<b>$1</b>");
+
+                if (item.toLowerCase(Locale.ROOT).contains("new") || item.toLowerCase(Locale.ROOT).contains("added")) {
+                    item = "<font color=\"#21C998\"><b>[NEW]</b></font> " + item;
+                } else if (item.toLowerCase(Locale.ROOT).contains("speed") || item.toLowerCase(Locale.ROOT).contains("fast") || item.toLowerCase(Locale.ROOT).contains("performance")) {
+                    item = "<font color=\"#06B6D4\"><b>[SPEED]</b></font> " + item;
+                } else if (item.toLowerCase(Locale.ROOT).contains("fix") || item.toLowerCase(Locale.ROOT).contains("resolved")) {
+                    item = "<font color=\"#FB7185\"><b>[FIX]</b></font> " + item;
+                } else if (item.toLowerCase(Locale.ROOT).contains("design") || item.toLowerCase(Locale.ROOT).contains("ui") || item.toLowerCase(Locale.ROOT).contains("gradient")) {
+                    item = "<font color=\"#A78BFA\"><b>[UI]</b></font> " + item;
+                }
                 html.append("&nbsp;&nbsp;•&nbsp;&nbsp;").append(item).append("<br>");
             } else if (trimmed.startsWith("  - ") || trimmed.startsWith("  * ")) {
                 String item = trimmed.substring(4);
@@ -440,7 +450,17 @@ public class UpdateManager {
         MaterialButton btnStartDownload = dialogView.findViewById(R.id.btnStartDownload);
         MaterialButton btnDismiss = dialogView.findViewById(R.id.btnDismissUpdate);
 
+        TextView tvCurrentVersionBadge = dialogView.findViewById(R.id.tvCurrentVersionBadge);
+        TextView tvNewVersionBadge = dialogView.findViewById(R.id.tvNewVersionBadge);
+        if (tvCurrentVersionBadge != null) {
+            tvCurrentVersionBadge.setText("Current: v" + getLocalVersionName(activity));
+        }
+        if (tvNewVersionBadge != null) {
+            tvNewVersionBadge.setText("New: " + tagName);
+        }
+
         // Progress views
+        View frameDownloadGlow = dialogView.findViewById(R.id.frameDownloadGlow);
         View layoutDownloadProgress = dialogView.findViewById(R.id.layoutDownloadProgress);
         TextView tvDownloadStatus = dialogView.findViewById(R.id.tvDownloadStatus);
         TextView tvDownloadSpeed = dialogView.findViewById(R.id.tvDownloadSpeed);
@@ -463,6 +483,10 @@ public class UpdateManager {
         btnStartDownload.setOnClickListener(v -> {
             btnStartDownload.setVisibility(View.GONE);
             btnDismiss.setVisibility(View.GONE);
+            if (frameDownloadGlow != null) {
+                frameDownloadGlow.setVisibility(View.VISIBLE);
+                startGlowBorderAnimation(activity, frameDownloadGlow, dialog);
+            }
             layoutDownloadProgress.setVisibility(View.VISIBLE);
             dialog.setCancelable(false);
 
@@ -471,6 +495,53 @@ public class UpdateManager {
         });
 
         dialog.show();
+    }
+
+    private void startGlowBorderAnimation(Activity activity, View glowContainer, AlertDialog dialog) {
+        float density = activity.getResources().getDisplayMetrics().density;
+        android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
+        gd.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        gd.setCornerRadius(18 * density);
+        gd.setColor(Color.parseColor("#0F172A"));
+        glowContainer.setBackground(gd);
+
+        final int[] colors = {
+                Color.parseColor("#21C998"), // Mint
+                Color.parseColor("#06B6D4"), // Cyan
+                Color.parseColor("#6366F1"), // Indigo
+                Color.parseColor("#EC4899"), // Pink
+                Color.parseColor("#F59E0B"), // Amber
+                Color.parseColor("#21C998")  // Back to Mint
+        };
+
+        android.animation.ValueAnimator animator = android.animation.ValueAnimator.ofFloat(0f, colors.length - 1);
+        animator.setDuration(3200);
+        animator.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+        animator.setInterpolator(new android.view.animation.LinearInterpolator());
+        animator.addUpdateListener(animation -> {
+            float val = (float) animation.getAnimatedValue();
+            int idx = (int) val;
+            int nextIdx = (idx + 1) % colors.length;
+            float fraction = val - idx;
+
+            int c1 = colors[idx];
+            int c2 = colors[nextIdx];
+            int blended = blendColors(c1, c2, fraction);
+
+            gd.setStroke((int) (2.5f * density), blended);
+        });
+        animator.start();
+
+        dialog.setOnDismissListener(d -> animator.cancel());
+    }
+
+    private static int blendColors(int from, int to, float ratio) {
+        float inverse = 1.0f - ratio;
+        float a = Color.alpha(from) * inverse + Color.alpha(to) * ratio;
+        float r = Color.red(from) * inverse + Color.red(to) * ratio;
+        float g = Color.green(from) * inverse + Color.green(to) * ratio;
+        float b = Color.blue(from) * inverse + Color.blue(to) * ratio;
+        return Color.argb((int) a, (int) r, (int) g, (int) b);
     }
 
     /**

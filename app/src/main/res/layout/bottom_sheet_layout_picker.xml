@@ -24,7 +24,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Choose Layout Style"
+                android:text="Choose Counter Layout Style"
                 android:textColor="@color/text_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -32,7 +32,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="12 modern layouts with live preview"
+                android:text="19 modern counter layouts with live preview"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
         </LinearLayout>

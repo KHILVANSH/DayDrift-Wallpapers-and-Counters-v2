@@ -75,8 +75,7 @@ public class CounterEditorDialog {
 
         // Test / Replay Animation Button
         view.findViewById(R.id.btnTestAnimation).setOnClickListener(v -> {
-            editorPreview.startTicking();
-            editorPreview.invalidate();
+            editorPreview.forceTestAnimation();
         });
 
         // Mode Selection: Countdown vs Count-Up
@@ -217,6 +216,9 @@ public class CounterEditorDialog {
         layoutItems.add(new SelectionItem(CounterModel.STYLE_HEX_BADGE, "Cyberpunk Hex Badge", "Angular hexagonal plaque with telemetry brackets", "Hexagon", R.drawable.ic_layout_hex));
         layoutItems.add(new SelectionItem(CounterModel.STYLE_ARC_DIAL, "Cosmic Orbit Arc", "240° sweeping radial gauge with orbital traveler dot", "Radial", R.drawable.ic_layout_arc));
         layoutItems.add(new SelectionItem(CounterModel.STYLE_NEO_PILL, "Asymmetric Bento Pill", "Modern split-pill badge with milestone counter chip", "Asymmetric", R.drawable.ic_layout_neo_pill));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_CAPSULE_HUD, "Dynamic Island Capsule", "Sleek iOS-inspired pill with live radar beacon and sub-timer", "Dynamic", R.drawable.ic_layout_capsule));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_RETRO_FLAP, "Departure Split-Flap", "Airport split-flap board with mechanical groove cards", "Mechanical", R.drawable.ic_layout_retro_flap));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_SPEEDO_GAUGE, "Cockpit Chrono Gauge", "Twin tachometer speedometer dials with neon needle pointer", "Chrono", R.drawable.ic_layout_speedo));
 
         AutoCompleteTextView menuLayoutStyle = view.findViewById(R.id.menuLayoutStyle);
         SelectionAdapter layoutAdapter = new SelectionAdapter(activity, layoutItems);
@@ -441,7 +443,7 @@ public class CounterEditorDialog {
         view.findViewById(R.id.btnCancel).setOnClickListener(v -> dialog.dismiss());
         view.findViewById(R.id.btnSave).setOnClickListener(v -> {
             String title = inputTitle.getText() != null ? inputTitle.getText().toString().trim() : "";
-            model.title = title.isEmpty() ? "Countdown" : title;
+            model.title = title.isEmpty() ? "Counter" : title;
             boolean makeActive = cbSetActive != null && cbSetActive.isChecked();
             model.isVisibleOnWallpaper = makeActive;
             if (makeActive) {
@@ -456,6 +458,8 @@ public class CounterEditorDialog {
             dialog.dismiss();
         });
 
+        dialog.setOnShowListener(d -> editorPreview.startTicking());
+        dialog.setOnDismissListener(d -> editorPreview.stopTicking());
         dialog.show();
     }
 

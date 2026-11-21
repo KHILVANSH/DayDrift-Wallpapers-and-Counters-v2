@@ -29,6 +29,7 @@ public class DayDriftWallpaperRenderer {
     private final Paint strokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private final RectF rectF = new RectF();
+    private final RectF cardRect = new RectF();
     private final Rect srcRect = new Rect();
     private final Rect dstRect = new Rect();
     private final Rect textBounds = new Rect();
@@ -153,16 +154,14 @@ public class DayDriftWallpaperRenderer {
     }
 
     public void renderCounter(Canvas canvas, int width, int height, CounterModel counter, long currentTime) {
+        boolean effectiveCountUp = counter.isCountUp || (currentTime >= counter.targetTimestamp);
         long remainingMillis;
-        boolean isFinished;
-        if (counter.isCountUp) {
+        boolean isFinished = false;
+
+        if (effectiveCountUp) {
             remainingMillis = Math.max(0, currentTime - counter.targetTimestamp);
-            isFinished = false;
         } else {
             remainingMillis = counter.targetTimestamp - currentTime;
-            isFinished = remainingMillis <= 0;
-            if (remainingMillis < 0)
-                remainingMillis = 0;
         }
 
         long days = remainingMillis / (24 * 3600 * 1000);
@@ -172,7 +171,7 @@ public class DayDriftWallpaperRenderer {
 
         // Sub-second interpolation for buttery-smooth digit transitions (420ms ease-out cubic)
         long ms = remainingMillis % 1000;
-        long elapsedSinceTick = counter.isCountUp ? ms : (1000 - ms);
+        long elapsedSinceTick = effectiveCountUp ? ms : (1000 - ms);
         final float DURATION = 420.0f;
         float rawProgress = 1.0f;
         if (elapsedSinceTick < DURATION) {
@@ -184,7 +183,7 @@ public class DayDriftWallpaperRenderer {
         long prevHours;
         long prevDays;
 
-        if (counter.isCountUp) {
+        if (effectiveCountUp) {
             prevSeconds = (elapsedSinceTick < DURATION) ? ((seconds == 0) ? 59 : seconds - 1) : seconds;
             prevMinutes = (seconds == 0 && elapsedSinceTick < DURATION) ? ((minutes == 0) ? 59 : minutes - 1) : minutes;
             prevHours = (minutes == 0 && seconds == 0 && elapsedSinceTick < DURATION) ? ((hours == 0) ? 23 : hours - 1) : hours;
@@ -242,25 +241,36 @@ public class DayDriftWallpaperRenderer {
         switch (style) {
             case CounterModel.STYLE_ONEPLUS:
                 renderOnePlus(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
-                        prevSeconds, rawProgress, counter.isCountUp, isFinished);
+                        prevSeconds, rawProgress, effectiveCountUp, isFinished);
                 break;
             case CounterModel.STYLE_HEX_BADGE:
                 renderHexBadge(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
-                        prevSeconds, rawProgress, counter.isCountUp, isFinished);
+                        prevSeconds, rawProgress, effectiveCountUp, isFinished);
                 break;
             case CounterModel.STYLE_ARC_DIAL:
-                renderArcDial(canvas, counter, days, hours, minutes, seconds, remainingMillis, counter.isCountUp, isFinished);
+                renderArcDial(canvas, counter, days, hours, minutes, seconds, remainingMillis, effectiveCountUp, isFinished);
                 break;
             case CounterModel.STYLE_NEO_PILL:
                 renderNeoPill(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
-                        prevSeconds, rawProgress, counter.isCountUp, isFinished);
+                        prevSeconds, rawProgress, effectiveCountUp, isFinished);
+                break;
+            case CounterModel.STYLE_CAPSULE_HUD:
+                renderCapsuleHud(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
+                        prevSeconds, rawProgress, effectiveCountUp, isFinished);
+                break;
+            case CounterModel.STYLE_RETRO_FLAP:
+                renderRetroFlap(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
+                        prevSeconds, rawProgress, effectiveCountUp, isFinished);
+                break;
+            case CounterModel.STYLE_SPEEDO_GAUGE:
+                renderSpeedoGauge(canvas, counter, days, hours, minutes, seconds, remainingMillis, effectiveCountUp, isFinished);
                 break;
             case CounterModel.STYLE_MINIMAL:
                 renderMinimal(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
                         prevSeconds, rawProgress, isFinished);
                 break;
             case CounterModel.STYLE_RING:
-                renderRing(canvas, counter, days, hours, minutes, seconds, remainingMillis, counter.isCountUp, isFinished);
+                renderRing(canvas, counter, days, hours, minutes, seconds, remainingMillis, effectiveCountUp, isFinished);
                 break;
             case CounterModel.STYLE_CARD:
                 renderCard(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
@@ -1650,6 +1660,266 @@ public class DayDriftWallpaperRenderer {
 
         paint.setAlpha(origAlpha);
         canvas.restore();
+    }
+
+    // 17. STYLE_CAPSULE_HUD: Futuristic Dual-Pill Capsule HUD
+    private void renderCapsuleHud(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m,
+            long prevM, long s, long prevS, float rawProgress, boolean isCountUp, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float capsuleW = spToPx(320);
+        float podH = spToPx(68);
+        float headerH = spToPx(hasTitle || hasEmoji ? 42 : 28);
+        float totalH = headerH + podH + spToPx(16);
+        float halfW = capsuleW / 2.0f;
+        float top = -totalH / 2.0f;
+
+        // Outer Glow/Glass Pod Base
+        cardRect.set(-halfW, top, halfW, top + totalH);
+        shapePaint.reset();
+        shapePaint.setStyle(Paint.Style.FILL);
+        shapePaint.setColor(Color.argb(215, 12, 17, 29));
+        canvas.drawRoundRect(cardRect, spToPx(24), spToPx(24), shapePaint);
+
+        strokePaint.reset();
+        strokePaint.setStyle(Paint.Style.STROKE);
+        strokePaint.setStrokeWidth(spToPx(1.5f));
+        strokePaint.setColor(Color.argb(120, 33, 201, 152));
+        canvas.drawRoundRect(cardRect, spToPx(24), spToPx(24), strokePaint);
+
+        // Header Pill
+        float curY = top + spToPx(16);
+        tagPaint.setTextSize(spToPx(10));
+        tagPaint.setColor(Color.parseColor("#21C998"));
+        tagPaint.setLetterSpacing(0.08f);
+        String status = isCountUp ? "CAPSULE // ELAPSED" : (done ? "GOAL REACHED" : "CAPSULE // ACTIVE");
+        String headerTitle = (hasEmoji ? counter.emoji + " " : "") + (hasTitle ? counter.title : status);
+        canvas.drawText(headerTitle, 0, curY + spToPx(8), tagPaint);
+        tagPaint.setLetterSpacing(0f);
+
+        // 4 Inner Pods
+        float podW = (capsuleW - spToPx(36)) / 4.0f;
+        float startX = -halfW + spToPx(14);
+        float podTop = top + headerH + spToPx(6);
+        float podBottom = podTop + podH;
+
+        String[] values = {
+                String.format(Locale.getDefault(), "%02d", d),
+                String.format(Locale.getDefault(), "%02d", h),
+                String.format(Locale.getDefault(), "%02d", m),
+                String.format(Locale.getDefault(), "%02d", s)
+        };
+        String[] prevValues = {
+                String.format(Locale.getDefault(), "%02d", prevD),
+                String.format(Locale.getDefault(), "%02d", prevH),
+                String.format(Locale.getDefault(), "%02d", prevM),
+                String.format(Locale.getDefault(), "%02d", prevS)
+        };
+        String[] unitTags = { "DAYS", "HRS", "MIN", "SEC" };
+
+        countPaint.setTextSize(spToPx(24));
+        tagPaint.setTextSize(spToPx(9));
+        tagPaint.setColor(Color.parseColor("#94A3B8"));
+
+        for (int i = 0; i < 4; i++) {
+            float pLeft = startX + i * (podW + spToPx(2.5f));
+            float pRight = pLeft + podW;
+            cardRect.set(pLeft, podTop, pRight, podBottom);
+
+            shapePaint.setColor(Color.argb(160, 21, 30, 48));
+            canvas.drawRoundRect(cardRect, spToPx(14), spToPx(14), shapePaint);
+
+            strokePaint.setStrokeWidth(spToPx(1f));
+            strokePaint.setColor(Color.argb(80, 255, 255, 255));
+            canvas.drawRoundRect(cardRect, spToPx(14), spToPx(14), strokePaint);
+
+            float pCenterX = (pLeft + pRight) / 2.0f;
+            float numY = podTop + spToPx(34);
+
+            drawRollingDigits(canvas, counter, values[i], prevValues[i], pCenterX, numY, countPaint,
+                    counter.countGradient, rawProgress, spToPx(16));
+
+            canvas.drawText(unitTags[i], pCenterX, podTop + spToPx(52), tagPaint);
+        }
+    }
+
+    // 18. STYLE_RETRO_FLAP: Mechanical Split-Flap Display Board
+    private void renderRetroFlap(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m,
+            long prevM, long s, long prevS, float rawProgress, boolean isCountUp, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float boardW = spToPx(324);
+        float flapH = spToPx(72);
+        float totalH = flapH + spToPx(hasEmoji || hasTitle ? 52 : 36);
+        float halfW = boardW / 2.0f;
+        float top = -totalH / 2.0f;
+
+        // Outer Dark Mechanical Housing
+        cardRect.set(-halfW, top, halfW, top + totalH);
+        shapePaint.reset();
+        shapePaint.setStyle(Paint.Style.FILL);
+        shapePaint.setColor(Color.parseColor("#0F141C"));
+        canvas.drawRoundRect(cardRect, spToPx(12), spToPx(12), shapePaint);
+
+        strokePaint.reset();
+        strokePaint.setStyle(Paint.Style.STROKE);
+        strokePaint.setStrokeWidth(spToPx(2f));
+        strokePaint.setColor(Color.parseColor("#252E3E"));
+        canvas.drawRoundRect(cardRect, spToPx(12), spToPx(12), strokePaint);
+
+        // Header Title / Status
+        float curY = top + spToPx(18);
+        if (hasEmoji || hasTitle) {
+            titlePaint.setTextSize(spToPx(13));
+            String titleText = (hasEmoji ? counter.emoji + " " : "") + (hasTitle ? counter.title : "DEPARTURE BOARD");
+            drawShaderText(canvas, titleText, 0, curY, titlePaint, counter.titleGradient);
+            curY += spToPx(16);
+        } else {
+            tagPaint.setTextSize(spToPx(10));
+            tagPaint.setColor(Color.parseColor("#F59E0B"));
+            tagPaint.setLetterSpacing(0.1f);
+            canvas.drawText(isCountUp ? "SPLIT-FLAP // TIME ELAPSED" : "SPLIT-FLAP // TIME REMAINING", 0, curY, tagPaint);
+            tagPaint.setLetterSpacing(0f);
+            curY += spToPx(14);
+        }
+
+        // 4 Split-Flap Cards
+        float cardGap = spToPx(6);
+        float flapCardW = (boardW - spToPx(24) - (cardGap * 3)) / 4.0f;
+        float flapStartLeft = -halfW + spToPx(12);
+        float flapTop = curY + spToPx(2);
+        float flapBottom = flapTop + flapH;
+
+        String[] flapVals = {
+                String.format(Locale.getDefault(), "%02d", d),
+                String.format(Locale.getDefault(), "%02d", h),
+                String.format(Locale.getDefault(), "%02d", m),
+                String.format(Locale.getDefault(), "%02d", s)
+        };
+        String[] prevFlapVals = {
+                String.format(Locale.getDefault(), "%02d", prevD),
+                String.format(Locale.getDefault(), "%02d", prevH),
+                String.format(Locale.getDefault(), "%02d", prevM),
+                String.format(Locale.getDefault(), "%02d", prevS)
+        };
+        String[] flapLabels = { "DAYS", "HOURS", "MINUTES", "SECONDS" };
+
+        countPaint.setTextSize(spToPx(28));
+        tagPaint.setTextSize(spToPx(8));
+        tagPaint.setColor(Color.parseColor("#E2E8F0"));
+
+        for (int i = 0; i < 4; i++) {
+            float fcLeft = flapStartLeft + i * (flapCardW + cardGap);
+            float fcRight = fcLeft + flapCardW;
+            cardRect.set(fcLeft, flapTop, fcRight, flapBottom);
+
+            // Flap Card Background
+            shapePaint.setColor(Color.parseColor("#181F2C"));
+            canvas.drawRoundRect(cardRect, spToPx(6), spToPx(6), shapePaint);
+
+            // Split Seam Line
+            float seamY = (flapTop + flapBottom) / 2.0f;
+            strokePaint.setColor(Color.parseColor("#080B10"));
+            strokePaint.setStrokeWidth(spToPx(2f));
+            canvas.drawLine(fcLeft, seamY, fcRight, seamY, strokePaint);
+
+            strokePaint.setColor(Color.argb(80, 255, 255, 255));
+            strokePaint.setStrokeWidth(spToPx(1f));
+            canvas.drawLine(fcLeft, seamY + spToPx(1.5f), fcRight, seamY + spToPx(1.5f), strokePaint);
+
+            // Side Hinge Pins
+            shapePaint.setColor(Color.parseColor("#64748B"));
+            canvas.drawCircle(fcLeft + spToPx(2), seamY, spToPx(2), shapePaint);
+            canvas.drawCircle(fcRight - spToPx(2), seamY, spToPx(2), shapePaint);
+
+            // Number Readout with animated digits
+            float fcCenterX = (fcLeft + fcRight) / 2.0f;
+            drawRollingDigits(canvas, counter, flapVals[i], prevFlapVals[i], fcCenterX, flapTop + spToPx(42), countPaint,
+                    counter.countGradient, rawProgress, spToPx(18));
+
+            // Bottom Sub-unit Label
+            canvas.drawText(flapLabels[i], fcCenterX, flapBottom - spToPx(6), tagPaint);
+        }
+    }
+
+    // 19. STYLE_SPEEDO_GAUGE: High-Precision Speedometer Gauge
+    private void renderSpeedoGauge(Canvas canvas, CounterModel counter, long d, long h, long m, long s,
+            long remainingMillis, boolean isCountUp, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float gaugeRadius = spToPx(105);
+        float cy = 0f;
+
+        // Dial Arc Bounds
+        cardRect.set(-gaugeRadius, cy - gaugeRadius, gaugeRadius, cy + gaugeRadius);
+
+        // 1. Base Gauge Track (240 degree sweep from 150 to 390)
+        strokePaint.reset();
+        strokePaint.setStyle(Paint.Style.STROKE);
+        strokePaint.setStrokeWidth(spToPx(9));
+        strokePaint.setStrokeCap(Paint.Cap.ROUND);
+        strokePaint.setColor(Color.argb(90, 30, 41, 59));
+        canvas.drawArc(cardRect, 150f, 240f, false, strokePaint);
+
+        // 2. Active Speed Sweep Arc
+        float sweepFraction;
+        if (isCountUp) {
+            sweepFraction = (float) ((s * 1000 + (remainingMillis % 1000)) / 60000.0);
+        } else {
+            sweepFraction = done ? 1.0f : (float) Math.min(1.0, (s * 1000 + (1000 - (remainingMillis % 1000))) / 60000.0);
+        }
+        sweepFraction = Math.max(0.02f, Math.min(1.0f, sweepFraction));
+
+        strokePaint.setStrokeWidth(spToPx(9));
+        strokePaint.setColor(counter.countColor != 0 ? counter.countColor : Color.parseColor("#21C998"));
+        canvas.drawArc(cardRect, 150f, 240f * sweepFraction, false, strokePaint);
+
+        // 3. Dial Tick Marks
+        strokePaint.setStrokeCap(Paint.Cap.BUTT);
+        for (int deg = 150; deg <= 390; deg += 15) {
+            double rad = Math.toRadians(deg);
+            boolean isMajor = (deg % 30 == 0);
+            float tickInner = gaugeRadius - spToPx(isMajor ? 18 : 12);
+            float tickOuter = gaugeRadius - spToPx(6);
+
+            float startX = (float) (Math.cos(rad) * tickInner);
+            float startY = (float) (Math.sin(rad) * tickInner) + cy;
+            float endX = (float) (Math.cos(rad) * tickOuter);
+            float endY = (float) (Math.sin(rad) * tickOuter) + cy;
+
+            strokePaint.setColor(isMajor ? Color.argb(220, 241, 245, 249) : Color.argb(120, 100, 116, 139));
+            strokePaint.setStrokeWidth(spToPx(isMajor ? 2.5f : 1.2f));
+            canvas.drawLine(startX, startY, endX, endY, strokePaint);
+        }
+
+        // 4. Center Main Speed Number (Large Days or Hours)
+        countPaint.setTextSize(spToPx(44));
+        String mainVal = done && !isCountUp ? "0" : String.valueOf(d);
+        drawShaderText(canvas, mainVal, 0, cy + spToPx(12), countPaint, counter.countGradient);
+
+        // 5. Speedometer Unit & Subtitle
+        tagPaint.setTextSize(spToPx(11));
+        tagPaint.setColor(Color.parseColor("#06B6D4"));
+        tagPaint.setLetterSpacing(0.08f);
+        String unitStr = isCountUp ? "DAYS ELAPSED" : "DAYS REMAINING";
+        canvas.drawText(unitStr, 0, cy + spToPx(30), tagPaint);
+        tagPaint.setLetterSpacing(0f);
+
+        // 6. Digital Sub-Odometer: HH : MM : SS
+        String timeOdo = String.format(Locale.getDefault(), "%02d : %02d : %02d", h, m, s);
+        tagPaint.setTextSize(spToPx(13));
+        tagPaint.setColor(Color.parseColor("#F8FAFC"));
+        canvas.drawText(timeOdo, 0, cy + spToPx(68), tagPaint);
+
+        // 7. Optional Title / Emoji at top of speedometer
+        if (hasEmoji || hasTitle) {
+            titlePaint.setTextSize(spToPx(14));
+            String titleStr = (hasEmoji ? counter.emoji + " " : "") + (hasTitle ? counter.title : "");
+            drawShaderText(canvas, titleStr, 0, cy - gaugeRadius - spToPx(14), titlePaint, counter.titleGradient);
+        }
     }
 
     private void drawShaderText(Canvas canvas, String text, float x, float y, Paint paint, GradientConfig gradient) {

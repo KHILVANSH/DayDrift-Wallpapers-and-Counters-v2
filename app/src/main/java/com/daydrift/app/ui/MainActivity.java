@@ -76,7 +76,9 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvVideoStatus;
     private SwitchMaterial switchRestartVideoOnWake;
     private SwitchMaterial switchCountersTabMaster;
+    private SwitchMaterial switchStudioMasterShowCounters;
     private TextView tvMasterCounterStatus;
+    private TextView tvStudioMasterCounterStatus;
     private boolean isUpdatingMasterToggle = false;
 
     // Studio Working Copy (DRAFT STATE - NEVER SAVED UNTIL USER CLICKS SAVE BUTTON)
@@ -433,9 +435,19 @@ public class MainActivity extends AppCompatActivity {
 
         switchCountersTabMaster = findViewById(R.id.switchCountersTabMaster);
         tvMasterCounterStatus = findViewById(R.id.tvMasterCounterStatus);
+        switchStudioMasterShowCounters = findViewById(R.id.switchStudioMasterShowCounters);
+        tvStudioMasterCounterStatus = findViewById(R.id.tvStudioMasterCounterStatus);
 
         if (switchCountersTabMaster != null) {
             switchCountersTabMaster.setOnCheckedChangeListener((btn, isChecked) -> {
+                if (!isUpdatingMasterToggle) {
+                    setMasterCounterVisibility(isChecked);
+                }
+            });
+        }
+
+        if (switchStudioMasterShowCounters != null) {
+            switchStudioMasterShowCounters.setOnCheckedChangeListener((btn, isChecked) -> {
                 if (!isUpdatingMasterToggle) {
                     setMasterCounterVisibility(isChecked);
                 }
@@ -513,6 +525,46 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // Gradient Angle Quick Chips
+        View.OnClickListener angleChipClick = v -> {
+            int id = v.getId();
+            int angle = 135;
+            if (id == R.id.chipAngle0) angle = 0;
+            else if (id == R.id.chipAngle45) angle = 45;
+            else if (id == R.id.chipAngle90) angle = 90;
+            else if (id == R.id.chipAngle135) angle = 135;
+            else if (id == R.id.chipAngle180) angle = 180;
+            else if (id == R.id.chipAngle270) angle = 270;
+
+            if (workingWallpaperConfig.gradientConfig == null) workingWallpaperConfig.gradientConfig = new GradientConfig();
+            workingWallpaperConfig.gradientConfig.angle = angle;
+            sliderBgAngle.setValue(angle);
+            tvBgAngle.setText("Gradient Angle: " + angle + "°");
+            markStudioChanged();
+            updateStudioPreview();
+        };
+
+        if (findViewById(R.id.chipAngle0) != null) findViewById(R.id.chipAngle0).setOnClickListener(angleChipClick);
+        if (findViewById(R.id.chipAngle45) != null) findViewById(R.id.chipAngle45).setOnClickListener(angleChipClick);
+        if (findViewById(R.id.chipAngle90) != null) findViewById(R.id.chipAngle90).setOnClickListener(angleChipClick);
+        if (findViewById(R.id.chipAngle135) != null) findViewById(R.id.chipAngle135).setOnClickListener(angleChipClick);
+        if (findViewById(R.id.chipAngle180) != null) findViewById(R.id.chipAngle180).setOnClickListener(angleChipClick);
+        if (findViewById(R.id.chipAngle270) != null) findViewById(R.id.chipAngle270).setOnClickListener(angleChipClick);
+
+        // Invert / Swap Gradient Colors Button
+        if (findViewById(R.id.btnSwapBgGradient) != null) {
+            findViewById(R.id.btnSwapBgGradient).setOnClickListener(v -> {
+                if (workingWallpaperConfig.gradientConfig == null) workingWallpaperConfig.gradientConfig = new GradientConfig();
+                int temp = workingWallpaperConfig.gradientConfig.startColor;
+                workingWallpaperConfig.gradientConfig.startColor = workingWallpaperConfig.gradientConfig.endColor;
+                workingWallpaperConfig.gradientConfig.endColor = temp;
+                findViewById(R.id.btnBgStartColor).setBackgroundColor(workingWallpaperConfig.gradientConfig.startColor);
+                findViewById(R.id.btnBgEndColor).setBackgroundColor(workingWallpaperConfig.gradientConfig.endColor);
+                markStudioChanged();
+                updateStudioPreview();
+            });
+        }
+
         findViewById(R.id.btnBgStartColor).setOnClickListener(v -> {
             int current = workingWallpaperConfig.gradientConfig != null ? workingWallpaperConfig.gradientConfig.startColor : Color.BLACK;
             ColorPickerDialog.show(this, "Start Color", current, col -> {
@@ -562,6 +614,26 @@ public class MainActivity extends AppCompatActivity {
                 workingWallpaperConfig.gradientConfig.startColor = Color.parseColor("#6366F1");
                 workingWallpaperConfig.gradientConfig.endColor = Color.parseColor("#A855F7");
                 workingWallpaperConfig.gradientConfig.angle = 90;
+            } else if (id == R.id.presetCosmic) {
+                workingWallpaperConfig.gradientConfig.startColor = Color.parseColor("#4F46E5");
+                workingWallpaperConfig.gradientConfig.endColor = Color.parseColor("#9333EA");
+                workingWallpaperConfig.gradientConfig.angle = 135;
+            } else if (id == R.id.presetVampire) {
+                workingWallpaperConfig.gradientConfig.startColor = Color.parseColor("#0F0507");
+                workingWallpaperConfig.gradientConfig.endColor = Color.parseColor("#881337");
+                workingWallpaperConfig.gradientConfig.angle = 180;
+            } else if (id == R.id.presetNordic) {
+                workingWallpaperConfig.gradientConfig.startColor = Color.parseColor("#0F172A");
+                workingWallpaperConfig.gradientConfig.endColor = Color.parseColor("#0284C7");
+                workingWallpaperConfig.gradientConfig.angle = 90;
+            } else if (id == R.id.presetSolar) {
+                workingWallpaperConfig.gradientConfig.startColor = Color.parseColor("#EA580C");
+                workingWallpaperConfig.gradientConfig.endColor = Color.parseColor("#FACC15");
+                workingWallpaperConfig.gradientConfig.angle = 45;
+            } else if (id == R.id.presetMidnight) {
+                workingWallpaperConfig.gradientConfig.startColor = Color.parseColor("#030712");
+                workingWallpaperConfig.gradientConfig.endColor = Color.parseColor("#1E1B4B");
+                workingWallpaperConfig.gradientConfig.angle = 135;
             }
 
             findViewById(R.id.btnBgStartColor).setBackgroundColor(workingWallpaperConfig.gradientConfig.startColor);
@@ -578,6 +650,11 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.presetEmerald).setOnClickListener(gradientPresetClick);
         findViewById(R.id.presetObsidian).setOnClickListener(gradientPresetClick);
         findViewById(R.id.presetAurora).setOnClickListener(gradientPresetClick);
+        if (findViewById(R.id.presetCosmic) != null) findViewById(R.id.presetCosmic).setOnClickListener(gradientPresetClick);
+        if (findViewById(R.id.presetVampire) != null) findViewById(R.id.presetVampire).setOnClickListener(gradientPresetClick);
+        if (findViewById(R.id.presetNordic) != null) findViewById(R.id.presetNordic).setOnClickListener(gradientPresetClick);
+        if (findViewById(R.id.presetSolar) != null) findViewById(R.id.presetSolar).setOnClickListener(gradientPresetClick);
+        if (findViewById(R.id.presetMidnight) != null) findViewById(R.id.presetMidnight).setOnClickListener(gradientPresetClick);
 
         // Unsplash search
         TextInputEditText inputQuery = findViewById(R.id.inputUnsplashQuery);
@@ -811,10 +888,18 @@ public class MainActivity extends AppCompatActivity {
             if (switchCountersTabMaster != null) {
                 switchCountersTabMaster.setChecked(visible);
             }
+            if (switchStudioMasterShowCounters != null) {
+                switchStudioMasterShowCounters.setChecked(visible);
+            }
             if (tvMasterCounterStatus != null) {
                 tvMasterCounterStatus.setText(visible
                         ? "Visible on lock screen & home screen"
                         : "Hidden from wallpaper (Wallpaper only mode)");
+            }
+            if (tvStudioMasterCounterStatus != null) {
+                tvStudioMasterCounterStatus.setText(visible
+                        ? "Active counter is displayed on live wallpaper"
+                        : "Counter hidden (Pure wallpaper background)");
             }
         } finally {
             isUpdatingMasterToggle = false;

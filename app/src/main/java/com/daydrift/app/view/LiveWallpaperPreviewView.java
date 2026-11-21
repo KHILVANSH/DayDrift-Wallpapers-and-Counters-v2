@@ -54,10 +54,11 @@ public class LiveWallpaperPreviewView extends View {
 
     // Hardware VSYNC-synced live rendering loop (Runs at native 144Hz / 120Hz / 60Hz display refresh)
     private boolean isTickingActive = false;
+    private long testAnimStartTime = 0;
     private final Runnable frameCallback = new Runnable() {
         @Override
         public void run() {
-            if (isTickingActive && isShown() && getWindowVisibility() == VISIBLE) {
+            if (isTickingActive && (previewMode == MODE_CARD || isShown() || isAttachedToWindow())) {
                 invalidate();
                 postOnAnimation(this);
             } else {
@@ -124,8 +125,14 @@ public class LiveWallpaperPreviewView extends View {
         removeCallbacks(frameCallback);
     }
 
+    public void forceTestAnimation() {
+        testAnimStartTime = System.currentTimeMillis();
+        startTicking();
+        invalidate();
+    }
+
     private void checkTickingState() {
-        if (isShown() && getWindowVisibility() == VISIBLE) {
+        if (previewMode == MODE_CARD || (isShown() && getWindowVisibility() == VISIBLE)) {
             startTicking();
         } else {
             stopTicking();
@@ -164,6 +171,14 @@ public class LiveWallpaperPreviewView extends View {
         if (w <= 0 || h <= 0) return;
 
         long currentTime = System.currentTimeMillis();
+        if (testAnimStartTime > 0) {
+            long elapsedTest = currentTime - testAnimStartTime;
+            if (elapsedTest < 1000) {
+                currentTime = currentTime - (currentTime % 1000) + (long) (elapsedTest * 0.42f);
+            } else {
+                testAnimStartTime = 0;
+            }
+        }
 
         if (previewMode == MODE_CARD) {
             // Mode CARD: renders an undistorted horizontal preview card
@@ -213,15 +228,15 @@ public class LiveWallpaperPreviewView extends View {
                 renderer.renderBackground(canvas, screenW, screenH, wallpaperConfig);
             }
 
-            // 2. Render Active / Draft Counter (always visible in phone mockup preview so user can touch & position)
-            if (counterModel != null) {
+            // 2. Render Active Counter ONLY if master toggle is enabled
+            boolean showCounter = (wallpaperConfig == null || wallpaperConfig.showCountersOnWallpaper)
+                    && counterModel != null && counterModel.isVisibleOnWallpaper;
+            if (showCounter) {
                 CounterModel previewModel = CounterModel.fromJsonObject(counterModel.toJsonObject());
                 previewModel.isVisibleOnWallpaper = true;
                 renderer.renderCounter(canvas, screenW, screenH, previewModel, currentTime);
-            }
-
-            // 3. If master toggle is currently OFF, draw an elegant subtle status pill overlay
-            if (wallpaperConfig != null && !wallpaperConfig.showCountersOnWallpaper) {
+            } else if (wallpaperConfig != null && !wallpaperConfig.showCountersOnWallpaper) {
+                // When toggled off, counter is hidden! Show subtle indicator pill
                 drawDisabledBadge(canvas, screenW, screenH);
             }
 

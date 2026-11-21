@@ -23,6 +23,9 @@ public class CounterModel implements Serializable {
     public static final String STYLE_HEX_BADGE = "HEX_BADGE";
     public static final String STYLE_ARC_DIAL = "ARC_DIAL";
     public static final String STYLE_NEO_PILL = "NEO_PILL";
+    public static final String STYLE_CAPSULE_HUD = "CAPSULE_HUD";
+    public static final String STYLE_RETRO_FLAP = "RETRO_FLAP";
+    public static final String STYLE_SPEEDO_GAUGE = "SPEEDO_GAUGE";
 
     public static final String ANIM_ROLL = "ROLL";
     public static final String ANIM_FLIP = "FLIP";

@@ -347,12 +347,70 @@
                     app:cornerRadius="10dp" />
             </LinearLayout>
 
-            <!-- Background Menu Selector (Dropdown Menu) -->
+            <!-- Master Counter Overlay Toggle in Wallpaper Studio -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp"
+                android:layout_marginBottom="14dp">
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/ic_timer"
+                    app:tint="@color/primary" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:layout_marginStart="14dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Show Counter on Wallpaper"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvStudioMasterCounterStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Active counter is displayed on live wallpaper"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switchStudioMasterShowCounters"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="true"
+                    app:thumbTint="@color/primary"
+                    app:trackTint="@color/bg_surface_elevated" />
+            </LinearLayout>
+
+            <!-- Wallpaper Background Type Header & Dropdown -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Wallpaper Background Type"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="6dp" />
+
             <com.google.android.material.textfield.TextInputLayout
                 style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Wallpaper Background Type"
+                app:hintEnabled="false"
                 app:boxBackgroundColor="@color/bg_surface_elevated"
                 app:boxStrokeColor="@color/primary"
                 app:boxCornerRadiusTopStart="12dp"
@@ -365,6 +423,7 @@
                     android:id="@+id/menuBackgroundType"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:hint="Choose background type"
                     android:inputType="none"
                     android:textColor="@color/text_primary" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -398,6 +457,79 @@
                     app:thumbColor="@color/primary"
                     app:trackColorActive="@color/primary" />
 
+                <!-- Quick Angle Chips -->
+                <HorizontalScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:scrollbars="none"
+                    android:layout_marginBottom="12dp">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/chipAngle0"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="32dp"
+                            android:text="0°"
+                            android:textSize="11sp"
+                            android:layout_marginEnd="6dp"
+                            app:cornerRadius="16dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/chipAngle45"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="32dp"
+                            android:text="45°"
+                            android:textSize="11sp"
+                            android:layout_marginEnd="6dp"
+                            app:cornerRadius="16dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/chipAngle90"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="32dp"
+                            android:text="90°"
+                            android:textSize="11sp"
+                            android:layout_marginEnd="6dp"
+                            app:cornerRadius="16dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/chipAngle135"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="32dp"
+                            android:text="135°"
+                            android:textSize="11sp"
+                            android:layout_marginEnd="6dp"
+                            app:cornerRadius="16dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/chipAngle180"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="32dp"
+                            android:text="180°"
+                            android:textSize="11sp"
+                            android:layout_marginEnd="6dp"
+                            app:cornerRadius="16dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/chipAngle270"
+                            style="@style/Widget.Material3.Button.TonalButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="32dp"
+                            android:text="270°"
+                            android:textSize="11sp"
+                            app:cornerRadius="16dp" />
+                    </LinearLayout>
+                </HorizontalScrollView>
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -426,6 +558,21 @@
                         android:textColor="@color/white"
                         app:cornerRadius="12dp" />
                 </LinearLayout>
+
+                <!-- Invert Gradient Colors Button -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSwapBgGradient"
+                    android:layout_width="match_parent"
+                    android:layout_height="38dp"
+                    android:layout_marginBottom="12dp"
+                    android:text="⇄  Invert Gradient Colors"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    android:textColor="@color/primary"
+                    android:backgroundTint="@color/bg_surface_elevated"
+                    app:strokeColor="@color/border_card"
+                    app:strokeWidth="1dp"
+                    app:cornerRadius="10dp" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -500,8 +647,68 @@
                             android:text="🔮 Aurora"
                             android:textAllCaps="false"
                             android:textSize="11sp"
+                            android:layout_marginEnd="6dp"
                             android:backgroundTint="#1F2937"
                             android:textColor="#A855F7"
+                            app:cornerRadius="18dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/presetCosmic"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:text="✨ Cosmic"
+                            android:textAllCaps="false"
+                            android:textSize="11sp"
+                            android:layout_marginEnd="6dp"
+                            android:backgroundTint="#1F2937"
+                            android:textColor="#818CF8"
+                            app:cornerRadius="18dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/presetVampire"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:text="🩸 Crimson"
+                            android:textAllCaps="false"
+                            android:textSize="11sp"
+                            android:layout_marginEnd="6dp"
+                            android:backgroundTint="#1F2937"
+                            android:textColor="#FB7185"
+                            app:cornerRadius="18dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/presetNordic"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:text="❄️ Frost"
+                            android:textAllCaps="false"
+                            android:textSize="11sp"
+                            android:layout_marginEnd="6dp"
+                            android:backgroundTint="#1F2937"
+                            android:textColor="#38BDF8"
+                            app:cornerRadius="18dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/presetSolar"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:text="🔥 Solar"
+                            android:textAllCaps="false"
+                            android:textSize="11sp"
+                            android:layout_marginEnd="6dp"
+                            android:backgroundTint="#1F2937"
+                            android:textColor="#FBBF24"
+                            app:cornerRadius="18dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/presetMidnight"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:text="🌃 Midnight"
+                            android:textAllCaps="false"
+                            android:textSize="11sp"
+                            android:backgroundTint="#1F2937"
+                            android:textColor="#C084FC"
                             app:cornerRadius="18dp" />
                     </LinearLayout>
                 </HorizontalScrollView>
