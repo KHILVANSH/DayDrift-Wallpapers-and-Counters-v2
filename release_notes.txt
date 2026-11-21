@@ -1,7 +1,0 @@
-### What's New in DayDrift v2.3.3
-
-- **Master Toggle on Counters Tab**: Added a prominent Master Toggle directly at the top of the main Counters tab to show/hide counters across lock screen & home screen live wallpapers in 1 tap.
-- **Instant Live Wallpaper Sync**: Master toggles on both the Counters tab and the Wallpaper Studio tab now immediately save and update the live wallpaper in real time (no need to manually find or click "Save Changes").
-- **Fixed Counter Item Toggles**: Replaced checkboxes with interactive `SwitchMaterial` toggles on counter cards. Fixed an issue where unchecking an active counter was ignored by the repository fallback. You can now freely toggle counters on or off.
-- **Counter Editor Wallpaper Toggle**: Added an "Active Wallpaper Counter" switch directly inside the Counter Editor dialog.
-- **Fixed Vector Drawable Linking**: Removed invalid `strokeDasharray` SVG attributes from adaptive icon vectors to ensure clean compilation.
