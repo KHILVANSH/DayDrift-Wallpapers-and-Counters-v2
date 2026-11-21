@@ -1,7 +1,9 @@
 package com.daydrift.app.service;
 
 import android.graphics.Canvas;
+import android.media.AudioAttributes;
 import android.media.MediaPlayer;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.service.wallpaper.WallpaperService;
@@ -75,6 +77,13 @@ public class DayDriftWallpaperService extends WallpaperService {
                     directMediaPlayer.setDataSource(fis.getFD(), 0, f.length());
                 }
                 directMediaPlayer.setLooping(true);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_UNKNOWN)
+                            .build();
+                    directMediaPlayer.setAudioAttributes(audioAttributes);
+                }
                 directMediaPlayer.setVolume(0f, 0f);
                 directMediaPlayer.setOnPreparedListener(mp -> {
                     isDirectPrepared = true;

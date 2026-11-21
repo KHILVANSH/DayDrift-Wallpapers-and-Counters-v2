@@ -75,6 +75,7 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout panelVideo;
     private TextView tvVideoStatus;
     private SwitchMaterial switchRestartVideoOnWake;
+    private SwitchMaterial switchMasterShowCounters;
 
     // Studio Working Copy (DRAFT STATE - NEVER SAVED UNTIL USER CLICKS SAVE BUTTON)
     private WallpaperConfig workingWallpaperConfig;
@@ -417,6 +418,17 @@ public class MainActivity extends AppCompatActivity {
                 markStudioChanged();
             }
         });
+
+        switchMasterShowCounters = findViewById(R.id.switchMasterShowCounters);
+        if (switchMasterShowCounters != null) {
+            switchMasterShowCounters.setOnCheckedChangeListener((btn, isChecked) -> {
+                if (workingWallpaperConfig != null) {
+                    workingWallpaperConfig.showCountersOnWallpaper = isChecked;
+                    markStudioChanged();
+                    updateStudioPreview();
+                }
+            });
+        }
 
         // Background Dropdown Menu Selection with Visual Previews
         List<com.daydrift.app.model.SelectionItem> bgMenuOptions = new java.util.ArrayList<>();
@@ -769,6 +781,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateStudioPanelsAndControls() {
+        if (switchMasterShowCounters != null && workingWallpaperConfig != null) {
+            switchMasterShowCounters.setChecked(workingWallpaperConfig.showCountersOnWallpaper);
+        }
+
         AutoCompleteTextView menuBg = findViewById(R.id.menuBackgroundType);
         String currentType = workingWallpaperConfig.backgroundType != null ? workingWallpaperConfig.backgroundType : WallpaperConfig.TYPE_GRADIENT;
 

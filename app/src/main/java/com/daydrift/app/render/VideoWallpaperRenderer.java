@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.SurfaceTexture;
+import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.opengl.EGL14;
 import android.opengl.EGLConfig;
@@ -275,6 +276,13 @@ public class VideoWallpaperRenderer {
                 mediaPlayer.setDataSource(fis.getFD(), 0, f.length());
             }
             mediaPlayer.setLooping(true);
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                AudioAttributes audioAttributes = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_UNKNOWN)
+                        .build();
+                mediaPlayer.setAudioAttributes(audioAttributes);
+            }
             mediaPlayer.setVolume(0f, 0f);
             mediaPlayer.setOnVideoSizeChangedListener((mp, vw, vh) -> {
                 if (vw > 0 && vh > 0 && surfaceWidth > 0 && surfaceHeight > 0) {

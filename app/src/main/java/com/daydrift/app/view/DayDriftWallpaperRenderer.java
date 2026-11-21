@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Typeface;
@@ -51,7 +52,8 @@ public class DayDriftWallpaperRenderer {
         }
 
         // 2. Draw Active Counter Overlay
-        if (counter != null && counter.isVisibleOnWallpaper) {
+        boolean showCounters = wallpaperConfig == null || wallpaperConfig.showCountersOnWallpaper;
+        if (showCounters && counter != null && counter.isVisibleOnWallpaper) {
             renderCounter(canvas, width, height, counter, currentTime);
         }
     }
@@ -151,31 +153,48 @@ public class DayDriftWallpaperRenderer {
     }
 
     public void renderCounter(Canvas canvas, int width, int height, CounterModel counter, long currentTime) {
-        long remainingMillis = counter.targetTimestamp - currentTime;
-        boolean isFinished = remainingMillis <= 0;
-        if (remainingMillis < 0)
-            remainingMillis = 0;
+        long remainingMillis;
+        boolean isFinished;
+        if (counter.isCountUp) {
+            remainingMillis = Math.max(0, currentTime - counter.targetTimestamp);
+            isFinished = false;
+        } else {
+            remainingMillis = counter.targetTimestamp - currentTime;
+            isFinished = remainingMillis <= 0;
+            if (remainingMillis < 0)
+                remainingMillis = 0;
+        }
 
         long days = remainingMillis / (24 * 3600 * 1000);
         long hours = (remainingMillis / (3600 * 1000)) % 24;
         long minutes = (remainingMillis / (60 * 1000)) % 60;
         long seconds = (remainingMillis / 1000) % 60;
 
-        // Sub-second interpolation for buttery-smooth digit transitions (420ms ease-out
-        // cubic)
+        // Sub-second interpolation for buttery-smooth digit transitions (420ms ease-out cubic)
         long ms = remainingMillis % 1000;
-        long elapsedSinceTick = 1000 - ms;
+        long elapsedSinceTick = counter.isCountUp ? ms : (1000 - ms);
         final float DURATION = 420.0f;
         float rawProgress = 1.0f;
         if (elapsedSinceTick < DURATION) {
             rawProgress = elapsedSinceTick / DURATION;
         }
 
-        long prevSeconds = (elapsedSinceTick < DURATION) ? (seconds + 1) % 60 : seconds;
-        long prevMinutes = (seconds == 59 && elapsedSinceTick < DURATION) ? (minutes + 1) % 60 : minutes;
-        long prevHours = (minutes == 59 && seconds == 59 && elapsedSinceTick < DURATION) ? (hours + 1) % 24 : hours;
-        long prevDays = (hours == 23 && minutes == 59 && seconds == 59 && elapsedSinceTick < DURATION) ? days + 1
-                : days;
+        long prevSeconds;
+        long prevMinutes;
+        long prevHours;
+        long prevDays;
+
+        if (counter.isCountUp) {
+            prevSeconds = (elapsedSinceTick < DURATION) ? ((seconds == 0) ? 59 : seconds - 1) : seconds;
+            prevMinutes = (seconds == 0 && elapsedSinceTick < DURATION) ? ((minutes == 0) ? 59 : minutes - 1) : minutes;
+            prevHours = (minutes == 0 && seconds == 0 && elapsedSinceTick < DURATION) ? ((hours == 0) ? 23 : hours - 1) : hours;
+            prevDays = (hours == 0 && minutes == 0 && seconds == 0 && elapsedSinceTick < DURATION) ? Math.max(0, days - 1) : days;
+        } else {
+            prevSeconds = (elapsedSinceTick < DURATION) ? (seconds + 1) % 60 : seconds;
+            prevMinutes = (seconds == 59 && elapsedSinceTick < DURATION) ? (minutes + 1) % 60 : minutes;
+            prevHours = (minutes == 59 && seconds == 59 && elapsedSinceTick < DURATION) ? (hours + 1) % 24 : hours;
+            prevDays = (hours == 23 && minutes == 59 && seconds == 59 && elapsedSinceTick < DURATION) ? days + 1 : days;
+        }
 
         float cx = width * counter.xOffset;
         float cy = height * counter.yOffset;
@@ -221,12 +240,27 @@ public class DayDriftWallpaperRenderer {
         String style = counter.layoutStyle != null ? counter.layoutStyle : CounterModel.STYLE_CLASSIC;
 
         switch (style) {
+            case CounterModel.STYLE_ONEPLUS:
+                renderOnePlus(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
+                        prevSeconds, rawProgress, counter.isCountUp, isFinished);
+                break;
+            case CounterModel.STYLE_HEX_BADGE:
+                renderHexBadge(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
+                        prevSeconds, rawProgress, counter.isCountUp, isFinished);
+                break;
+            case CounterModel.STYLE_ARC_DIAL:
+                renderArcDial(canvas, counter, days, hours, minutes, seconds, remainingMillis, counter.isCountUp, isFinished);
+                break;
+            case CounterModel.STYLE_NEO_PILL:
+                renderNeoPill(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
+                        prevSeconds, rawProgress, counter.isCountUp, isFinished);
+                break;
             case CounterModel.STYLE_MINIMAL:
                 renderMinimal(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
                         prevSeconds, rawProgress, isFinished);
                 break;
             case CounterModel.STYLE_RING:
-                renderRing(canvas, counter, days, hours, minutes, seconds, remainingMillis, isFinished);
+                renderRing(canvas, counter, days, hours, minutes, seconds, remainingMillis, counter.isCountUp, isFinished);
                 break;
             case CounterModel.STYLE_CARD:
                 renderCard(canvas, counter, days, prevDays, hours, prevHours, minutes, prevMinutes, seconds,
@@ -383,12 +417,12 @@ public class DayDriftWallpaperRenderer {
             drawRollingDigits(canvas, counter, dStr, prevDStr, 0, countY, countPaint, counter.countGradient,
                     rawProgress, spToPx(26));
             tagPaint.setTextSize(spToPx(14));
-            canvas.drawText("DAYS REMAINING", 0, countY + spToPx(24), tagPaint);
+            canvas.drawText(counter.isCountUp ? "DAYS ELAPSED" : "DAYS REMAINING", 0, countY + spToPx(24), tagPaint);
         }
     }
 
     private void renderRing(Canvas canvas, CounterModel counter, long d, long h, long m, long s, long remaining,
-            boolean done) {
+            boolean isCountUp, boolean done) {
         boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
         boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
 
@@ -413,20 +447,22 @@ public class DayDriftWallpaperRenderer {
         shapePaint.setColor(counter.countColor);
         canvas.drawCircle(tipX, tipY, spToPx(5), shapePaint);
 
+        String ringUnit = isCountUp ? "DAYS ELAPSED" : "DAYS";
+
         if (hasEmoji) {
             emojiPaint.setTextSize(spToPx(28));
             canvas.drawText(counter.emoji, 0, ringCenterY - spToPx(26), emojiPaint);
             countPaint.setTextSize(spToPx(38));
-            drawShaderText(canvas, done ? "0" : String.valueOf(d), 0, ringCenterY + spToPx(12), countPaint,
+            drawShaderText(canvas, done && !isCountUp ? "0" : String.valueOf(d), 0, ringCenterY + spToPx(12), countPaint,
                     counter.countGradient);
             tagPaint.setTextSize(spToPx(11));
-            canvas.drawText("DAYS", 0, ringCenterY + spToPx(28), tagPaint);
+            canvas.drawText(ringUnit, 0, ringCenterY + spToPx(28), tagPaint);
         } else {
             countPaint.setTextSize(spToPx(44));
-            drawShaderText(canvas, done ? "0" : String.valueOf(d), 0, ringCenterY - spToPx(4), countPaint,
+            drawShaderText(canvas, done && !isCountUp ? "0" : String.valueOf(d), 0, ringCenterY - spToPx(4), countPaint,
                     counter.countGradient);
             tagPaint.setTextSize(spToPx(12));
-            canvas.drawText("DAYS", 0, ringCenterY + spToPx(18), tagPaint);
+            canvas.drawText(ringUnit, 0, ringCenterY + spToPx(18), tagPaint);
         }
 
         if (hasTitle) {
@@ -951,6 +987,416 @@ public class DayDriftWallpaperRenderer {
 
             tagPaint.setTextSize(spToPx(9));
             canvas.drawText(tags[i], centerX, spToPx(16), tagPaint);
+        }
+    }
+
+    private void renderOnePlus(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m,
+            long prevM, long s, long prevS, float rawProgress, boolean isCountUp, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float totalH = spToPx(110);
+        if (hasEmoji) totalH += spToPx(38) + spToPx(10);
+        if (hasTitle) totalH += spToPx(24) + spToPx(12);
+
+        float curY = -totalH / 2.0f;
+
+        if (hasEmoji) {
+            canvas.drawText(counter.emoji, 0, curY + spToPx(32), emojiPaint);
+            curY += spToPx(38) + spToPx(10);
+        }
+
+        // OnePlus Status Pill: Red Dot + Status Tag
+        tagPaint.setTextSize(spToPx(12));
+        String statusText = isCountUp ? "DAYS ELAPSED" : (done ? "GOAL REACHED" : "DAYS REMAINING");
+        float tagTextW = tagPaint.measureText(statusText);
+        float dotRadius = spToPx(3.5f);
+        float totalTagW = dotRadius * 2 + spToPx(6) + tagTextW;
+        float tagStartX = -totalTagW / 2.0f;
+
+        shapePaint.reset();
+        shapePaint.setStyle(Paint.Style.FILL);
+        shapePaint.setColor(Color.parseColor("#EB0029")); // OnePlus Crimson
+        canvas.drawCircle(tagStartX + dotRadius, curY + spToPx(10) - dotRadius / 2, dotRadius, shapePaint);
+        tagPaint.setColor(Color.argb(220, 255, 255, 255));
+        canvas.drawText(statusText, tagStartX + dotRadius * 2 + spToPx(6) + (tagTextW / 2.0f), curY + spToPx(10), tagPaint);
+        curY += spToPx(20) + spToPx(6);
+
+        // OnePlus Hero Digits: Extra large bold font with red '1's!
+        countPaint.setTextSize(spToPx(72));
+        float heroY = curY + spToPx(56);
+        if (done && !isCountUp) {
+            drawOnePlusDigits(canvas, "00", "00", 0, heroY, countPaint, rawProgress);
+        } else {
+            String dStr = d < 100 ? String.format(Locale.getDefault(), "%02d", d) : String.valueOf(d);
+            String prevDStr = prevD < 100 ? String.format(Locale.getDefault(), "%02d", prevD) : String.valueOf(prevD);
+            drawOnePlusDigits(canvas, dStr, prevDStr, 0, heroY, countPaint, rawProgress);
+        }
+        curY += spToPx(66);
+
+        // OnePlus Sub-Timer: HH : MM : SS with red '1's
+        if (!done || isCountUp) {
+            countPaint.setTextSize(spToPx(20));
+            String hStr = String.format(Locale.getDefault(), "%02d", h);
+            String prevHStr = String.format(Locale.getDefault(), "%02d", prevH);
+            String mStr = String.format(Locale.getDefault(), "%02d", m);
+            String prevMStr = String.format(Locale.getDefault(), "%02d", prevM);
+            String sStr = String.format(Locale.getDefault(), "%02d", s);
+            String prevSStr = String.format(Locale.getDefault(), "%02d", prevS);
+            String fullTime = hStr + " : " + mStr + " : " + sStr;
+            String prevFullTime = prevHStr + " : " + prevMStr + " : " + prevSStr;
+            float subTimerY = curY + spToPx(16);
+            drawOnePlusDigits(canvas, fullTime, prevFullTime, 0, subTimerY, countPaint, rawProgress);
+            curY += spToPx(26);
+        }
+
+        if (hasTitle) {
+            curY += spToPx(10);
+            titlePaint.setTextSize(spToPx(18));
+            titlePaint.setLetterSpacing(0.08f);
+            drawShaderText(canvas, counter.title.toUpperCase(Locale.getDefault()), 0, curY + spToPx(16), titlePaint, counter.titleGradient);
+            titlePaint.setLetterSpacing(0f);
+        }
+    }
+
+    private void drawOnePlusDigits(Canvas canvas, String currentDigits, String prevDigits, float x, float y,
+            Paint paint, float rawProgress) {
+        if (currentDigits == null || currentDigits.isEmpty()) return;
+
+        float totalW = 0;
+        float[] widths = new float[currentDigits.length()];
+        for (int i = 0; i < currentDigits.length(); i++) {
+            widths[i] = paint.measureText(String.valueOf(currentDigits.charAt(i)));
+            totalW += widths[i];
+        }
+
+        float curX = x - (totalW / 2.0f);
+        int origColor = paint.getColor();
+        int onePlusRed = Color.parseColor("#EB0029");
+
+        for (int i = 0; i < currentDigits.length(); i++) {
+            char curC = currentDigits.charAt(i);
+            char prevC = (prevDigits != null && i < prevDigits.length()) ? prevDigits.charAt(i) : curC;
+            float charW = widths[i];
+            float charCenterX = curX + (charW / 2.0f);
+
+            if (curC == '1') {
+                paint.setColor(onePlusRed);
+            } else {
+                paint.setColor(origColor);
+            }
+
+            if (curC == prevC || rawProgress >= 1.0f) {
+                canvas.drawText(String.valueOf(curC), charCenterX, y, paint);
+            } else {
+                float inv = 1.0f - rawProgress;
+                float ease = 1.0f - (inv * inv * inv);
+                Paint.FontMetrics fm = paint.getFontMetrics();
+                float fontH = Math.abs(fm.ascent) + Math.abs(fm.descent);
+
+                canvas.save();
+                canvas.clipRect(curX - spToPx(1), y + fm.ascent, curX + charW + spToPx(1), y + fm.descent);
+
+                int origAlpha = paint.getAlpha();
+                int prevColor = (prevC == '1') ? onePlusRed : origColor;
+                paint.setColor(prevColor);
+                paint.setAlpha((int) (origAlpha * (1.0f - ease)));
+                canvas.drawText(String.valueOf(prevC), charCenterX, y + (fontH * ease), paint);
+
+                paint.setColor((curC == '1') ? onePlusRed : origColor);
+                paint.setAlpha((int) (origAlpha * ease));
+                canvas.drawText(String.valueOf(curC), charCenterX, y - (fontH * (1.0f - ease)), paint);
+
+                paint.setAlpha(origAlpha);
+                canvas.restore();
+            }
+
+            curX += charW;
+        }
+
+        paint.setColor(origColor);
+    }
+
+    private void renderHexBadge(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m,
+            long prevM, long s, long prevS, float rawProgress, boolean isCountUp, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float badgeW = spToPx(300);
+        float badgeH = spToPx(hasEmoji && hasTitle ? 160 : 135);
+        float chamfer = spToPx(18);
+
+        float left = -badgeW / 2.0f;
+        float right = badgeW / 2.0f;
+        float top = -badgeH / 2.0f;
+        float bottom = badgeH / 2.0f;
+
+        Path hexPath = new Path();
+        hexPath.moveTo(left + chamfer, top);
+        hexPath.lineTo(right - chamfer, top);
+        hexPath.lineTo(right, top + chamfer);
+        hexPath.lineTo(right, bottom - chamfer);
+        hexPath.lineTo(right - chamfer, bottom);
+        hexPath.lineTo(left + chamfer, bottom);
+        hexPath.lineTo(left, bottom - chamfer);
+        hexPath.lineTo(left, top + chamfer);
+        hexPath.close();
+
+        // Fill cyber glass
+        shapePaint.reset();
+        shapePaint.setStyle(Paint.Style.FILL);
+        shapePaint.setColor(Color.argb(215, 10, 15, 29));
+        canvas.drawPath(hexPath, shapePaint);
+
+        // Stroke cyber border
+        strokePaint.reset();
+        strokePaint.setStyle(Paint.Style.STROKE);
+        strokePaint.setStrokeWidth(spToPx(1.5f));
+        strokePaint.setColor(Color.argb(160, 33, 201, 152));
+        canvas.drawPath(hexPath, strokePaint);
+
+        // Cyber Corner Bracket Accents
+        float bracketLen = spToPx(10);
+        strokePaint.setStrokeWidth(spToPx(2.5f));
+        strokePaint.setColor(Color.parseColor("#06B6D4"));
+        canvas.drawLine(left + chamfer, top + spToPx(2), left + chamfer + bracketLen, top + spToPx(2), strokePaint);
+        canvas.drawLine(right - chamfer - bracketLen, top + spToPx(2), right - chamfer, top + spToPx(2), strokePaint);
+        canvas.drawLine(left + chamfer, bottom - spToPx(2), left + chamfer + bracketLen, bottom - spToPx(2), strokePaint);
+        canvas.drawLine(right - chamfer - bracketLen, bottom - spToPx(2), right - chamfer, bottom - spToPx(2), strokePaint);
+
+        float curY = top + spToPx(18);
+
+        // Top Cyber Telemetry Header
+        tagPaint.setTextSize(spToPx(10));
+        tagPaint.setColor(Color.parseColor("#06B6D4"));
+        tagPaint.setLetterSpacing(0.12f);
+        String cyberHeader = isCountUp ? "// SYS.ELAPSED // METRIC: LIVE" : (done ? "// SYS.GOAL // COMPLETED" : "// SYS.T-MINUS // ACTIVE_ORBIT");
+        canvas.drawText(cyberHeader, 0, curY, tagPaint);
+        tagPaint.setLetterSpacing(0f);
+        curY += spToPx(14);
+
+        if (hasEmoji) {
+            emojiPaint.setTextSize(spToPx(22));
+            canvas.drawText(counter.emoji, 0, curY + spToPx(12), emojiPaint);
+            curY += spToPx(24);
+        }
+
+        // Center Digital Readout
+        countPaint.setTextSize(spToPx(32));
+        float countY = curY + spToPx(24);
+        if (done && !isCountUp) {
+            drawShaderText(canvas, "TARGET REACHED", 0, countY, countPaint, counter.countGradient);
+        } else {
+            String dStr = String.format(Locale.getDefault(), "%02d", d);
+            String prevDStr = String.format(Locale.getDefault(), "%02d", prevD);
+            String hStr = String.format(Locale.getDefault(), "%02d", h);
+            String prevHStr = String.format(Locale.getDefault(), "%02d", prevH);
+            String mStr = String.format(Locale.getDefault(), "%02d", m);
+            String prevMStr = String.format(Locale.getDefault(), "%02d", prevM);
+            String sStr = String.format(Locale.getDefault(), "%02d", s);
+            String prevSStr = String.format(Locale.getDefault(), "%02d", prevS);
+            String sep = ":";
+
+            float slotW = countPaint.measureText("88") + spToPx(2);
+            float sepW = countPaint.measureText(sep);
+            float totalW = (slotW * 4) + (sepW * 3);
+            float curX = -totalW / 2.0f;
+
+            drawRollingDigits(canvas, counter, dStr, prevDStr, curX + slotW / 2.0f, countY, countPaint, counter.countGradient, rawProgress, spToPx(16));
+            curX += slotW;
+            drawShaderText(canvas, sep, curX + sepW / 2.0f, countY, countPaint, counter.countGradient);
+            curX += sepW;
+            drawRollingDigits(canvas, counter, hStr, prevHStr, curX + slotW / 2.0f, countY, countPaint, counter.countGradient, rawProgress, spToPx(16));
+            curX += slotW;
+            drawShaderText(canvas, sep, curX + sepW / 2.0f, countY, countPaint, counter.countGradient);
+            curX += sepW;
+            drawRollingDigits(canvas, counter, mStr, prevMStr, curX + slotW / 2.0f, countY, countPaint, counter.countGradient, rawProgress, spToPx(16));
+            curX += slotW;
+            drawShaderText(canvas, sep, curX + sepW / 2.0f, countY, countPaint, counter.countGradient);
+            curX += sepW;
+            drawRollingDigits(canvas, counter, sStr, prevSStr, curX + slotW / 2.0f, countY, countPaint, counter.countGradient, rawProgress, spToPx(16));
+        }
+        curY = countY + spToPx(16);
+
+        // Micro Time Tags
+        tagPaint.setTextSize(spToPx(9));
+        tagPaint.setColor(Color.argb(160, 255, 255, 255));
+        canvas.drawText("DAYS          HRS          MIN          SEC", 0, curY, tagPaint);
+        curY += spToPx(14);
+
+        if (hasTitle) {
+            titlePaint.setTextSize(spToPx(14));
+            drawShaderText(canvas, counter.title.toUpperCase(Locale.getDefault()), 0, curY + spToPx(2), titlePaint, counter.titleGradient);
+        }
+    }
+
+    private void renderArcDial(Canvas canvas, CounterModel counter, long d, long h, long m, long s, long remaining,
+            boolean isCountUp, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float radius = spToPx(92);
+        float dialCenterY = hasTitle ? -spToPx(14) : 0;
+        rectF.set(-radius, dialCenterY - radius, radius, dialCenterY + radius);
+
+        float startAngle = 150f;
+        float sweepAngle = 240f;
+
+        strokePaint.reset();
+        strokePaint.setStyle(Paint.Style.STROKE);
+        strokePaint.setStrokeWidth(spToPx(8));
+        strokePaint.setStrokeCap(Paint.Cap.ROUND);
+        strokePaint.setColor(Color.argb(45, 255, 255, 255));
+        canvas.drawArc(rectF, startAngle, sweepAngle, false, strokePaint);
+
+        float progressFraction = ((remaining % (24 * 3600 * 1000L)) / (24 * 3600 * 1000f));
+        if (done && !isCountUp) progressFraction = 1.0f;
+        float currentSweep = Math.max(4f, Math.min(sweepAngle, progressFraction * sweepAngle));
+
+        strokePaint.setColor(counter.countColor);
+        canvas.drawArc(rectF, startAngle, currentSweep, false, strokePaint);
+
+        double beadAngleRad = Math.toRadians(startAngle + currentSweep);
+        float beadX = (float) (Math.cos(beadAngleRad) * radius);
+        float beadY = (float) (Math.sin(beadAngleRad) * radius + dialCenterY);
+
+        shapePaint.reset();
+        shapePaint.setStyle(Paint.Style.FILL);
+        shapePaint.setColor(Color.argb(80, Color.red(counter.countColor), Color.green(counter.countColor), Color.blue(counter.countColor)));
+        canvas.drawCircle(beadX, beadY, spToPx(10), shapePaint);
+
+        shapePaint.setColor(counter.countColor);
+        canvas.drawCircle(beadX, beadY, spToPx(5), shapePaint);
+
+        shapePaint.setColor(Color.WHITE);
+        canvas.drawCircle(beadX, beadY, spToPx(2.5f), shapePaint);
+
+        float curY = dialCenterY - spToPx(26);
+
+        if (hasEmoji) {
+            emojiPaint.setTextSize(spToPx(26));
+            canvas.drawText(counter.emoji, 0, curY, emojiPaint);
+            curY += spToPx(26);
+        }
+
+        countPaint.setTextSize(spToPx(44));
+        float heroY = curY + spToPx(28);
+        String dayVal = done && !isCountUp ? "0" : String.valueOf(d);
+        drawShaderText(canvas, dayVal, 0, heroY, countPaint, counter.countGradient);
+        curY = heroY + spToPx(16);
+
+        tagPaint.setTextSize(spToPx(11));
+        tagPaint.setColor(Color.argb(200, 255, 255, 255));
+        String dialUnit = isCountUp ? "DAYS ELAPSED" : (done ? "GOAL REACHED" : "DAYS LEFT");
+        canvas.drawText(dialUnit, 0, curY, tagPaint);
+        curY += spToPx(16);
+
+        tagPaint.setTextSize(spToPx(12));
+        tagPaint.setColor(Color.argb(160, 255, 255, 255));
+        String timeStr = String.format(Locale.getDefault(), "%02d:%02d:%02d", h, m, s);
+        canvas.drawText(timeStr, 0, curY, tagPaint);
+
+        if (hasTitle) {
+            titlePaint.setTextSize(spToPx(17));
+            drawShaderText(canvas, counter.title, 0, dialCenterY + radius + spToPx(28), titlePaint, counter.titleGradient);
+        }
+    }
+
+    private void renderNeoPill(Canvas canvas, CounterModel counter, long d, long prevD, long h, long prevH, long m,
+            long prevM, long s, long prevS, float rawProgress, boolean isCountUp, boolean done) {
+        boolean hasEmoji = counter.showEmoji && counter.emoji != null && !counter.emoji.trim().isEmpty();
+        boolean hasTitle = counter.showTitle && counter.title != null && !counter.title.trim().isEmpty();
+
+        float pillW = spToPx(310);
+        float pillH = spToPx(76);
+        float pillRadius = pillH / 2.0f;
+        rectF.set(-pillW / 2.0f, -pillH / 2.0f, pillW / 2.0f, pillH / 2.0f);
+
+        shapePaint.reset();
+        shapePaint.setStyle(Paint.Style.FILL);
+        shapePaint.setColor(Color.argb(185, 15, 20, 32));
+        canvas.drawRoundRect(rectF, pillRadius, pillRadius, shapePaint);
+
+        strokePaint.reset();
+        strokePaint.setStyle(Paint.Style.STROKE);
+        strokePaint.setStrokeWidth(spToPx(1.2f));
+        strokePaint.setColor(Color.argb(70, 255, 255, 255));
+        canvas.drawRoundRect(rectF, pillRadius, pillRadius, strokePaint);
+
+        float chipW = spToPx(72);
+        float chipMargin = spToPx(6);
+        float chipLeft = -pillW / 2.0f + chipMargin;
+        float chipTop = -pillH / 2.0f + chipMargin;
+        float chipRight = chipLeft + chipW;
+        float chipBottom = pillH / 2.0f - chipMargin;
+        RectF chipRect = new RectF(chipLeft, chipTop, chipRight, chipBottom);
+
+        shapePaint.setColor(counter.countColor);
+        canvas.drawRoundRect(chipRect, pillRadius - spToPx(4), pillRadius - spToPx(4), shapePaint);
+
+        float chipCenterX = (chipLeft + chipRight) / 2.0f;
+        float chipCenterY = (chipTop + chipBottom) / 2.0f;
+
+        Paint darkPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        darkPaint.setTypeface(countPaint.getTypeface());
+        darkPaint.setTextAlign(Paint.Align.CENTER);
+        darkPaint.setColor(Color.parseColor("#0B0E14"));
+
+        if (hasEmoji) {
+            emojiPaint.setTextSize(spToPx(20));
+            canvas.drawText(counter.emoji, chipCenterX, chipCenterY - spToPx(6), emojiPaint);
+            darkPaint.setTextSize(spToPx(14));
+            darkPaint.setFakeBoldText(true);
+            canvas.drawText(d + "d", chipCenterX, chipCenterY + spToPx(13), darkPaint);
+        } else {
+            darkPaint.setTextSize(spToPx(24));
+            darkPaint.setFakeBoldText(true);
+            canvas.drawText(d + "d", chipCenterX, chipCenterY + spToPx(8), darkPaint);
+        }
+
+        float divX = chipRight + spToPx(10);
+        strokePaint.setColor(Color.argb(45, 255, 255, 255));
+        strokePaint.setStrokeWidth(spToPx(1f));
+        canvas.drawLine(divX, -pillH / 2.0f + spToPx(14), divX, pillH / 2.0f - spToPx(14), strokePaint);
+
+        float rightContentStartX = divX + spToPx(10);
+        float rightContentEndX = pillW / 2.0f - spToPx(14);
+        float rightCenterX = (rightContentStartX + rightContentEndX) / 2.0f;
+
+        titlePaint.setTextSize(spToPx(13));
+        titlePaint.setTextAlign(Paint.Align.CENTER);
+        String titleStr = hasTitle ? counter.title : (isCountUp ? "TIME ELAPSED" : "TIME REMAINING");
+        drawShaderText(canvas, titleStr, rightCenterX, -spToPx(8), titlePaint, counter.titleGradient);
+
+        countPaint.setTextSize(spToPx(21));
+        countPaint.setTextAlign(Paint.Align.CENTER);
+        float timerY = spToPx(18);
+
+        if (done && !isCountUp) {
+            drawShaderText(canvas, "CELEBRATING!", rightCenterX, timerY, countPaint, counter.countGradient);
+        } else {
+            String hStr = String.format(Locale.getDefault(), "%02d", h);
+            String prevHStr = String.format(Locale.getDefault(), "%02d", prevH);
+            String mStr = String.format(Locale.getDefault(), "%02d", m);
+            String prevMStr = String.format(Locale.getDefault(), "%02d", prevM);
+            String sStr = String.format(Locale.getDefault(), "%02d", s);
+            String prevSStr = String.format(Locale.getDefault(), "%02d", prevS);
+            String sep = ":";
+
+            float slotW = countPaint.measureText("88") + spToPx(2);
+            float sepW = countPaint.measureText(sep);
+            float totalTimerW = (slotW * 3) + (sepW * 2);
+            float startTimerX = rightCenterX - (totalTimerW / 2.0f);
+
+            drawRollingDigits(canvas, counter, hStr, prevHStr, startTimerX + slotW / 2.0f, timerY, countPaint, counter.countGradient, rawProgress, spToPx(14));
+            startTimerX += slotW;
+            drawShaderText(canvas, sep, startTimerX + sepW / 2.0f, timerY, countPaint, counter.countGradient);
+            startTimerX += sepW;
+            drawRollingDigits(canvas, counter, mStr, prevMStr, startTimerX + slotW / 2.0f, timerY, countPaint, counter.countGradient, rawProgress, spToPx(14));
+            startTimerX += slotW;
+            drawShaderText(canvas, sep, startTimerX + sepW / 2.0f, timerY, countPaint, counter.countGradient);
+            startTimerX += sepW;
+            drawRollingDigits(canvas, counter, sStr, prevSStr, startTimerX + slotW / 2.0f, timerY, countPaint, counter.countGradient, rawProgress, spToPx(14));
         }
     }
 

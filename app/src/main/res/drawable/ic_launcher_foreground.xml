@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Orbital Dial Progress Ring -->
+    <path
+        android:strokeColor="#21C998"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M 33,33 A 30,30 0 1,1 75,75" />
+
+    <path
+        android:strokeColor="#334155"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeDasharray="2,6"
+        android:pathData="M 75,75 A 30,30 0 0,1 33,33" />
+
+    <!-- Top Hourglass Funnel (Mint Neon) -->
+    <path
+        android:fillColor="#21C998"
+        android:pathData="M38,36 h32 c1.1,0 1.8,1.2 1.2,2.1 L55.2,52 c-0.6,0.8 -1.8,0.8 -2.4,0 L36.8,38.1 c-0.6,-0.9 0.1,-2.1 1.2,-2.1z" />
+
+    <!-- Bottom Hourglass Funnel (Electric Violet) -->
+    <path
+        android:fillColor="#6366F1"
+        android:pathData="M52.8,56 c0.6,-0.8 1.8,-0.8 2.4,0 L71.2,70 c0.6,0.9 -0.1,2 -1.2,2 H38 c-1.1,0 -1.8,-1.1 -1.2,-2 L52.8,56z" />
+
+    <!-- Center Pulse Energy Core -->
+    <path
+        android:fillColor="#06B6D4"
+        android:pathData="M54,54 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0" />
+
+    <!-- Hourglass Frame Caps -->
+    <path
+        android:strokeColor="#F8FAFC"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M35,34 L73,34" />
+    <path
+        android:strokeColor="#F8FAFC"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M35,74 L73,74" />
+</vector>
+

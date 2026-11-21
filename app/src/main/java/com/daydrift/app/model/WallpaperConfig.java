@@ -19,6 +19,7 @@ public class WallpaperConfig implements Serializable {
     public int dimPercent; // 0 - 80%
     public int blurRadius; // 0 - 25
     public boolean restartVideoOnScreenOn = true;
+    public boolean showCountersOnWallpaper = true;
 
     public WallpaperConfig() {
         this.backgroundType = TYPE_GRADIENT;
@@ -29,6 +30,7 @@ public class WallpaperConfig implements Serializable {
         this.dimPercent = 20;
         this.blurRadius = 0;
         this.restartVideoOnScreenOn = true;
+        this.showCountersOnWallpaper = true;
     }
 
     public JSONObject toJsonObject() {
@@ -42,6 +44,7 @@ public class WallpaperConfig implements Serializable {
             json.put("dimPercent", dimPercent);
             json.put("blurRadius", blurRadius);
             json.put("restartVideoOnScreenOn", restartVideoOnScreenOn);
+            json.put("showCountersOnWallpaper", showCountersOnWallpaper);
         } catch (JSONException ignored) {}
         return json;
     }
@@ -57,6 +60,7 @@ public class WallpaperConfig implements Serializable {
         config.dimPercent = json.optInt("dimPercent", 20);
         config.blurRadius = json.optInt("blurRadius", 0);
         config.restartVideoOnScreenOn = json.optBoolean("restartVideoOnScreenOn", true);
+        config.showCountersOnWallpaper = json.optBoolean("showCountersOnWallpaper", true);
         return config;
     }
 }

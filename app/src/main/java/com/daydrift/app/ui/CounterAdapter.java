@@ -60,11 +60,27 @@ public class CounterAdapter extends RecyclerView.Adapter<CounterAdapter.ViewHold
         }
 
         holder.title.setText(c.title);
-        holder.targetDate.setText("Target: " + dateFormat.format(new Date(c.targetTimestamp)));
-
-        long diff = c.targetTimestamp - System.currentTimeMillis();
-        long days = diff > 0 ? (diff / (24 * 3600 * 1000)) : 0;
-        holder.remaining.setText(days + "d");
+        if (c.isCountUp) {
+            holder.targetDate.setText("Started: " + dateFormat.format(new Date(c.targetTimestamp)));
+            long elapsed = Math.max(0, System.currentTimeMillis() - c.targetTimestamp);
+            long days = elapsed / (24 * 3600 * 1000);
+            holder.remaining.setText("+" + days + "d");
+            holder.remaining.setTextColor(context.getColor(R.color.accent_cyan));
+            if (holder.modeBadge != null) {
+                holder.modeBadge.setText("⏱️ COUNT-UP");
+                holder.modeBadge.setTextColor(context.getColor(R.color.accent_cyan));
+            }
+        } else {
+            holder.targetDate.setText("Target: " + dateFormat.format(new Date(c.targetTimestamp)));
+            long diff = c.targetTimestamp - System.currentTimeMillis();
+            long days = diff > 0 ? (diff / (24 * 3600 * 1000)) : 0;
+            holder.remaining.setText(days + "d");
+            holder.remaining.setTextColor(context.getColor(R.color.primary));
+            if (holder.modeBadge != null) {
+                holder.modeBadge.setText("⏳ COUNTDOWN");
+                holder.modeBadge.setTextColor(context.getColor(R.color.primary));
+            }
+        }
 
         holder.checkWallpaper.setChecked(c.isVisibleOnWallpaper);
         holder.checkWallpaper.setOnClickListener(v -> {
@@ -88,6 +104,7 @@ public class CounterAdapter extends RecyclerView.Adapter<CounterAdapter.ViewHold
     static class ViewHolder extends RecyclerView.ViewHolder {
         final TextView emoji;
         final TextView title;
+        final TextView modeBadge;
         final TextView targetDate;
         final TextView remaining;
         final CheckBox checkWallpaper;
@@ -98,6 +115,7 @@ public class CounterAdapter extends RecyclerView.Adapter<CounterAdapter.ViewHold
             super(v);
             emoji = v.findViewById(R.id.itemEmoji);
             title = v.findViewById(R.id.itemTitle);
+            modeBadge = v.findViewById(R.id.itemModeBadge);
             targetDate = v.findViewById(R.id.itemTargetDate);
             remaining = v.findViewById(R.id.itemRemaining);
             checkWallpaper = v.findViewById(R.id.checkShowOnWallpaper);

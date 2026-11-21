@@ -79,6 +79,44 @@ public class CounterEditorDialog {
             editorPreview.invalidate();
         });
 
+        // Mode Selection: Countdown vs Count-Up
+        MaterialButton btnModeCountdown = view.findViewById(R.id.btnModeCountdown);
+        MaterialButton btnModeCountUp = view.findViewById(R.id.btnModeCountUp);
+        TextView tvDateLabel = view.findViewById(R.id.tvDateLabel);
+
+        final Runnable updateModeButtons = () -> {
+            if (model.isCountUp) {
+                btnModeCountUp.setBackgroundTintList(android.content.res.ColorStateList.valueOf(activity.getColor(R.color.primary)));
+                btnModeCountUp.setTextColor(activity.getColor(R.color.bg_dark));
+                btnModeCountdown.setBackgroundTintList(android.content.res.ColorStateList.valueOf(activity.getColor(R.color.bg_surface_elevated)));
+                btnModeCountdown.setTextColor(activity.getColor(R.color.text_secondary));
+                if (tvDateLabel != null) {
+                    tvDateLabel.setText("Milestone / Start Date & Time (Past Date)");
+                }
+            } else {
+                btnModeCountdown.setBackgroundTintList(android.content.res.ColorStateList.valueOf(activity.getColor(R.color.primary)));
+                btnModeCountdown.setTextColor(activity.getColor(R.color.bg_dark));
+                btnModeCountUp.setBackgroundTintList(android.content.res.ColorStateList.valueOf(activity.getColor(R.color.bg_surface_elevated)));
+                btnModeCountUp.setTextColor(activity.getColor(R.color.text_secondary));
+                if (tvDateLabel != null) {
+                    tvDateLabel.setText("Target Date & Time (Future Date)");
+                }
+            }
+        };
+        updateModeButtons.run();
+
+        btnModeCountdown.setOnClickListener(v -> {
+            model.isCountUp = false;
+            updateModeButtons.run();
+            refreshPreview.run();
+        });
+
+        btnModeCountUp.setOnClickListener(v -> {
+            model.isCountUp = true;
+            updateModeButtons.run();
+            refreshPreview.run();
+        });
+
         // 2. Title & Visibility
         TextInputEditText inputTitle = view.findViewById(R.id.inputTitle);
         inputTitle.setText(model.title);
@@ -175,6 +213,10 @@ public class CounterEditorDialog {
         layoutItems.add(new SelectionItem(CounterModel.STYLE_BENTO, "2×2 Bento Box Tiles", "Modern 2×2 squircle grid with corner badges", "Bento", R.drawable.ic_layout_bento));
         layoutItems.add(new SelectionItem(CounterModel.STYLE_CYBER_HUD, "Sci-Fi Terminal HUD", "Tactical HUD with corner brackets and telemetry", "Tactical", R.drawable.ic_layout_cyber));
         layoutItems.add(new SelectionItem(CounterModel.STYLE_FLOAT_TAG, "Floating Capsule Badges", "4 floating translucent capsules with bold numbers", "Modern", R.drawable.ic_layout_float));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_ONEPLUS, "OnePlus Crimson Clock", "Signature red '1' lockscreen minimalist clock", "OnePlus", R.drawable.ic_layout_oneplus));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_HEX_BADGE, "Cyberpunk Hex Badge", "Angular hexagonal plaque with telemetry brackets", "Hexagon", R.drawable.ic_layout_hex));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_ARC_DIAL, "Cosmic Orbit Arc", "240° sweeping radial gauge with orbital traveler dot", "Radial", R.drawable.ic_layout_arc));
+        layoutItems.add(new SelectionItem(CounterModel.STYLE_NEO_PILL, "Asymmetric Bento Pill", "Modern split-pill badge with milestone counter chip", "Asymmetric", R.drawable.ic_layout_neo_pill));
 
         AutoCompleteTextView menuLayoutStyle = view.findViewById(R.id.menuLayoutStyle);
         SelectionAdapter layoutAdapter = new SelectionAdapter(activity, layoutItems);

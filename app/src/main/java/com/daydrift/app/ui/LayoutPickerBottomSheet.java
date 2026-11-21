@@ -85,6 +85,10 @@ public class LayoutPickerBottomSheet extends BottomSheetDialogFragment {
         list.add(new LayoutCardItem(CounterModel.STYLE_BENTO, "2×2 Bento Box Tiles", "Modern 2×2 squircle grid with corner unit badges", "Bento", R.drawable.ic_layout_bento));
         list.add(new LayoutCardItem(CounterModel.STYLE_CYBER_HUD, "Sci-Fi Terminal HUD", "Tactical HUD with corner brackets and telemetry status", "Tactical", R.drawable.ic_layout_cyber));
         list.add(new LayoutCardItem(CounterModel.STYLE_FLOAT_TAG, "Floating Capsule Badges", "4 floating translucent capsules with bold numbers", "Modern", R.drawable.ic_layout_float));
+        list.add(new LayoutCardItem(CounterModel.STYLE_ONEPLUS, "OnePlus Crimson Clock", "Signature red '1' lockscreen minimalist clock", "OnePlus", R.drawable.ic_layout_oneplus));
+        list.add(new LayoutCardItem(CounterModel.STYLE_HEX_BADGE, "Cyberpunk Hex Badge", "Angular hexagonal plaque with telemetry brackets", "Hexagon", R.drawable.ic_layout_hex));
+        list.add(new LayoutCardItem(CounterModel.STYLE_ARC_DIAL, "Cosmic Orbit Arc", "240° sweeping radial gauge with orbital traveler dot", "Radial", R.drawable.ic_layout_arc));
+        list.add(new LayoutCardItem(CounterModel.STYLE_NEO_PILL, "Asymmetric Bento Pill", "Modern split-pill badge with milestone counter chip", "Asymmetric", R.drawable.ic_layout_neo_pill));
         return list;
     }
 

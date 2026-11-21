@@ -19,6 +19,10 @@ public class CounterModel implements Serializable {
     public static final String STYLE_BENTO = "BENTO";
     public static final String STYLE_CYBER_HUD = "CYBER_HUD";
     public static final String STYLE_FLOAT_TAG = "FLOAT_TAG";
+    public static final String STYLE_ONEPLUS = "ONEPLUS";
+    public static final String STYLE_HEX_BADGE = "HEX_BADGE";
+    public static final String STYLE_ARC_DIAL = "ARC_DIAL";
+    public static final String STYLE_NEO_PILL = "NEO_PILL";
 
     public static final String ANIM_ROLL = "ROLL";
     public static final String ANIM_FLIP = "FLIP";
@@ -32,6 +36,7 @@ public class CounterModel implements Serializable {
     public long targetTimestamp;
     public long createdTimestamp;
     public boolean isVisibleOnWallpaper;
+    public boolean isCountUp;
 
     public int countColor;
     public GradientConfig countGradient;
@@ -59,6 +64,7 @@ public class CounterModel implements Serializable {
         this.targetTimestamp = System.currentTimeMillis() + (7L * 24 * 3600 * 1000);
         this.createdTimestamp = System.currentTimeMillis();
         this.isVisibleOnWallpaper = true;
+        this.isCountUp = false;
 
         this.countColor = Color.WHITE;
         this.countGradient = new GradientConfig(true, GradientConfig.TYPE_LINEAR, 45, Color.parseColor("#21C998"), Color.parseColor("#06B6D4"));
@@ -95,6 +101,7 @@ public class CounterModel implements Serializable {
             this.targetTimestamp = other.targetTimestamp;
             this.createdTimestamp = other.createdTimestamp;
             this.isVisibleOnWallpaper = other.isVisibleOnWallpaper;
+            this.isCountUp = other.isCountUp;
             this.countColor = other.countColor;
             this.countGradient = other.countGradient != null ? other.countGradient.copy() : null;
             this.titleColor = other.titleColor;
@@ -121,6 +128,7 @@ public class CounterModel implements Serializable {
             json.put("targetTimestamp", targetTimestamp);
             json.put("createdTimestamp", createdTimestamp);
             json.put("isVisibleOnWallpaper", isVisibleOnWallpaper);
+            json.put("isCountUp", isCountUp);
             json.put("countColor", countColor);
             json.put("countGradient", countGradient != null ? countGradient.toJsonObject() : null);
             json.put("titleColor", titleColor);
@@ -148,6 +156,7 @@ public class CounterModel implements Serializable {
         model.targetTimestamp = json.optLong("targetTimestamp", System.currentTimeMillis());
         model.createdTimestamp = json.optLong("createdTimestamp", System.currentTimeMillis());
         model.isVisibleOnWallpaper = json.optBoolean("isVisibleOnWallpaper", true);
+        model.isCountUp = json.optBoolean("isCountUp", false);
         model.countColor = json.optInt("countColor", Color.WHITE);
         model.countGradient = GradientConfig.fromJsonObject(json.optJSONObject("countGradient"));
         model.titleColor = json.optInt("titleColor", Color.LTGRAY);
