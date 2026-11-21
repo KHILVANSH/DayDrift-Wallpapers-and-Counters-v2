@@ -94,14 +94,15 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
 
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/checkShowOnWallpaper"
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/switchShowOnWallpaper"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Show on Wallpaper"
+            android:text="Wallpaper Counter"
             android:textColor="@color/text_secondary"
             android:textSize="13sp"
-            app:buttonTint="@color/primary" />
+            app:thumbTint="@color/primary"
+            app:trackTint="@color/bg_surface_elevated" />
 
         <View
             android:layout_width="0dp"

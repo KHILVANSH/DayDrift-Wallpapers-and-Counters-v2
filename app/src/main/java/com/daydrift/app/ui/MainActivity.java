@@ -75,7 +75,10 @@ public class MainActivity extends AppCompatActivity {
     private LinearLayout panelVideo;
     private TextView tvVideoStatus;
     private SwitchMaterial switchRestartVideoOnWake;
+    private SwitchMaterial switchCountersTabMaster;
     private SwitchMaterial switchMasterShowCounters;
+    private TextView tvMasterCounterStatus;
+    private boolean isUpdatingMasterToggle = false;
 
     // Studio Working Copy (DRAFT STATE - NEVER SAVED UNTIL USER CLICKS SAVE BUTTON)
     private WallpaperConfig workingWallpaperConfig;
@@ -115,6 +118,7 @@ public class MainActivity extends AppCompatActivity {
         initViews();
         loadCounters();
         initStudioDraft();
+        updateMasterToggleViews(wallpaperRepo.getConfig().showCountersOnWallpaper);
 
         counterRepo.addChangeListener(() -> runOnUiThread(this::loadCounters));
         wallpaperRepo.addChangeListener(() -> runOnUiThread(() -> {
@@ -333,11 +337,9 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void onSelectWallpaper(CounterModel counter) {
-                counterRepo.setOnlyWallpaperCounter(counter.id);
+                counterRepo.toggleWallpaperCounter(counter.id);
                 loadCounters();
-                if (!hasUnsavedChanges) {
-                    initStudioDraft();
-                }
+                initStudioDraft();
             }
         });
         rvCounters.setAdapter(counterAdapter);
@@ -419,13 +421,22 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        switchCountersTabMaster = findViewById(R.id.switchCountersTabMaster);
+        tvMasterCounterStatus = findViewById(R.id.tvMasterCounterStatus);
         switchMasterShowCounters = findViewById(R.id.switchMasterShowCounters);
+
+        if (switchCountersTabMaster != null) {
+            switchCountersTabMaster.setOnCheckedChangeListener((btn, isChecked) -> {
+                if (!isUpdatingMasterToggle) {
+                    setMasterCounterVisibility(isChecked);
+                }
+            });
+        }
+
         if (switchMasterShowCounters != null) {
             switchMasterShowCounters.setOnCheckedChangeListener((btn, isChecked) -> {
-                if (workingWallpaperConfig != null) {
-                    workingWallpaperConfig.showCountersOnWallpaper = isChecked;
-                    markStudioChanged();
-                    updateStudioPreview();
+                if (!isUpdatingMasterToggle) {
+                    setMasterCounterVisibility(isChecked);
                 }
             });
         }
@@ -767,6 +778,40 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(this, "Changes discarded.", Toast.LENGTH_SHORT).show();
     }
 
+    private void setMasterCounterVisibility(boolean visible) {
+        WallpaperConfig config = wallpaperRepo.getConfig();
+        config.showCountersOnWallpaper = visible;
+        wallpaperRepo.saveConfig(config);
+
+        if (workingWallpaperConfig != null) {
+            workingWallpaperConfig.showCountersOnWallpaper = visible;
+        }
+
+        updateMasterToggleViews(visible);
+        updateStudioPreview();
+
+        Toast.makeText(this, visible ? "Wallpaper counters: Visible" : "Wallpaper counters: Hidden", Toast.LENGTH_SHORT).show();
+    }
+
+    private void updateMasterToggleViews(boolean visible) {
+        isUpdatingMasterToggle = true;
+        try {
+            if (switchCountersTabMaster != null) {
+                switchCountersTabMaster.setChecked(visible);
+            }
+            if (switchMasterShowCounters != null) {
+                switchMasterShowCounters.setChecked(visible);
+            }
+            if (tvMasterCounterStatus != null) {
+                tvMasterCounterStatus.setText(visible
+                        ? "Visible on lock screen & home screen"
+                        : "Hidden from wallpaper (Counters saved)");
+            }
+        } finally {
+            isUpdatingMasterToggle = false;
+        }
+    }
+
     private void initStudioDraft() {
         WallpaperConfig savedConfig = wallpaperRepo.getConfig();
         workingWallpaperConfig = WallpaperConfig.fromJsonObject(savedConfig.toJsonObject());
@@ -781,8 +826,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateStudioPanelsAndControls() {
-        if (switchMasterShowCounters != null && workingWallpaperConfig != null) {
-            switchMasterShowCounters.setChecked(workingWallpaperConfig.showCountersOnWallpaper);
+        if (workingWallpaperConfig != null) {
+            updateMasterToggleViews(workingWallpaperConfig.showCountersOnWallpaper);
         }
 
         AutoCompleteTextView menuBg = findViewById(R.id.menuBackgroundType);

@@ -162,8 +162,8 @@ public class LiveWallpaperPreviewView extends View {
                 renderer.renderBackground(canvas, w, h, wallpaperConfig);
             }
 
-            // 2. Render counter centered inside card with uniform scaling
-            if (counterModel != null && counterModel.isVisibleOnWallpaper) {
+            // 2. Render counter centered inside card with uniform scaling (always visible in editor preview)
+            if (counterModel != null) {
                 CounterModel cardModel = CounterModel.fromJsonObject(counterModel.toJsonObject());
                 cardModel.xOffset = 0.5f;
                 cardModel.yOffset = 0.5f;

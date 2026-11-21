@@ -78,10 +78,17 @@ public class CounterRepository {
                 return model;
             }
         }
-        return cachedCounters.isEmpty() ? null : cachedCounters.get(0);
+        return null;
     }
 
     public synchronized void saveCounter(CounterModel counter) {
+        if (counter.isVisibleOnWallpaper) {
+            for (CounterModel m : cachedCounters) {
+                if (!m.id.equals(counter.id)) {
+                    m.isVisibleOnWallpaper = false;
+                }
+            }
+        }
         boolean found = false;
         for (int i = 0; i < cachedCounters.size(); i++) {
             if (cachedCounters.get(i).id.equals(counter.id)) {
@@ -109,6 +116,17 @@ public class CounterRepository {
     public synchronized void setOnlyWallpaperCounter(String id) {
         for (CounterModel model : cachedCounters) {
             model.isVisibleOnWallpaper = model.id.equals(id);
+        }
+        saveToPrefs();
+    }
+
+    public synchronized void toggleWallpaperCounter(String id) {
+        for (CounterModel model : cachedCounters) {
+            if (model.id.equals(id)) {
+                model.isVisibleOnWallpaper = !model.isVisibleOnWallpaper;
+            } else {
+                model.isVisibleOnWallpaper = false;
+            }
         }
         saveToPrefs();
     }

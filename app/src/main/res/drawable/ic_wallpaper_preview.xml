@@ -20,8 +20,8 @@
     <path
         android:strokeColor="#334155"
         android:strokeWidth="2"
+        android:strokeAlpha="0.6"
         android:strokeLineCap="round"
-        android:strokeDasharray="2,6"
         android:pathData="M 75,75 A 30,30 0 0,1 33,33" />
 
     <!-- Top Hourglass Funnel (Mint Neon) -->

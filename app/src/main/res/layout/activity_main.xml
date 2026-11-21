@@ -115,33 +115,97 @@
     </LinearLayout>
 
     <!-- TAB 1: COUNTERS CONTAINER -->
-    <FrameLayout
+    <LinearLayout
         android:id="@+id/containerCounters"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:orientation="vertical"
         android:visibility="visible">
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerCounters"
+        <!-- Master Wallpaper Counter Toggle Card on Counters Tab -->
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:padding="16dp"
-            android:clipToPadding="false" />
-
-        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-            android:id="@+id/fabNewCounter"
-            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom|end"
-            android:layout_margin="20dp"
-            android:text="@string/action_add_counter"
-            android:textColor="@color/bg_dark"
-            android:textStyle="bold"
-            android:backgroundTint="@color/primary"
-            app:icon="@android:drawable/ic_input_add"
-            app:iconTint="@color/bg_dark" />
-    </FrameLayout>
+            android:orientation="horizontal"
+            android:background="@drawable/bg_card"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="6dp"
+            android:padding="14dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:src="@drawable/ic_layout_classic"
+                app:tint="@color/primary"
+                android:background="@drawable/bg_pill"
+                android:padding="7dp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginStart="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Show Counter on Wallpaper"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvMasterCounterStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Visible on lock screen &amp; home screen"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/switchCountersTabMaster"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:checked="true"
+                app:thumbTint="@color/primary"
+                app:trackTint="@color/bg_surface_elevated" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerCounters"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="16dp"
+                android:clipToPadding="false" />
+
+            <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+                android:id="@+id/fabNewCounter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|end"
+                android:layout_margin="20dp"
+                android:text="@string/action_add_counter"
+                android:textColor="@color/bg_dark"
+                android:textStyle="bold"
+                android:backgroundTint="@color/primary"
+                app:icon="@android:drawable/ic_input_add"
+                app:iconTint="@color/bg_dark" />
+        </FrameLayout>
+    </LinearLayout>
 
     <!-- TAB 2: WALLPAPER STUDIO CONTAINER -->
     <ScrollView

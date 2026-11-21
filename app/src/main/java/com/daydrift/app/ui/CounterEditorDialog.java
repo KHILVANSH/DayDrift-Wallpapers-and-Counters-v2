@@ -132,6 +132,15 @@ public class CounterEditorDialog {
             public void afterTextChanged(Editable s) {}
         });
 
+        SwitchMaterial switchShowOnWallpaper = view.findViewById(R.id.switchShowOnWallpaper);
+        if (switchShowOnWallpaper != null) {
+            switchShowOnWallpaper.setChecked(model.isVisibleOnWallpaper);
+            switchShowOnWallpaper.setOnCheckedChangeListener((btn, isChecked) -> {
+                model.isVisibleOnWallpaper = isChecked;
+                refreshPreview.run();
+            });
+        }
+
         SwitchMaterial switchShowTitle = view.findViewById(R.id.switchShowTitle);
         switchShowTitle.setChecked(model.showTitle);
         switchShowTitle.setOnCheckedChangeListener((btn, isChecked) -> {

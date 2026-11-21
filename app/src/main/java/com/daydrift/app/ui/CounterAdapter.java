@@ -82,8 +82,9 @@ public class CounterAdapter extends RecyclerView.Adapter<CounterAdapter.ViewHold
             }
         }
 
-        holder.checkWallpaper.setChecked(c.isVisibleOnWallpaper);
-        holder.checkWallpaper.setOnClickListener(v -> {
+        holder.switchWallpaper.setOnCheckedChangeListener(null);
+        holder.switchWallpaper.setChecked(c.isVisibleOnWallpaper);
+        holder.switchWallpaper.setOnCheckedChangeListener((btn, isChecked) -> {
             if (listener != null) listener.onSelectWallpaper(c);
         });
 
@@ -107,7 +108,7 @@ public class CounterAdapter extends RecyclerView.Adapter<CounterAdapter.ViewHold
         final TextView modeBadge;
         final TextView targetDate;
         final TextView remaining;
-        final CheckBox checkWallpaper;
+        final com.google.android.material.switchmaterial.SwitchMaterial switchWallpaper;
         final ImageButton btnEdit;
         final ImageButton btnDelete;
 
@@ -118,7 +119,7 @@ public class CounterAdapter extends RecyclerView.Adapter<CounterAdapter.ViewHold
             modeBadge = v.findViewById(R.id.itemModeBadge);
             targetDate = v.findViewById(R.id.itemTargetDate);
             remaining = v.findViewById(R.id.itemRemaining);
-            checkWallpaper = v.findViewById(R.id.checkShowOnWallpaper);
+            switchWallpaper = v.findViewById(R.id.switchShowOnWallpaper);
             btnEdit = v.findViewById(R.id.btnEdit);
             btnDelete = v.findViewById(R.id.btnDelete);
         }
