@@ -201,8 +201,9 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "Importing video... Please wait.", Toast.LENGTH_SHORT).show();
                 ioExecutor.execute(() -> {
                     cleanOldMediaFiles("video_");
-                    String path = copyStreamToInternalStorage(in, "video_" + System.currentTimeMillis() + ".mp4");
-                    if (path != null) {
+                    String rawPath = copyStreamToInternalStorage(in, "video_" + System.currentTimeMillis() + ".mp4");
+                    if (rawPath != null) {
+                        String path = com.daydrift.app.util.VideoSanitizer.sanitizeVideo(this, rawPath);
                         String details = extractVideoDetails(path);
                         runOnUiThread(() -> {
                             workingWallpaperConfig.backgroundType = WallpaperConfig.TYPE_VIDEO;

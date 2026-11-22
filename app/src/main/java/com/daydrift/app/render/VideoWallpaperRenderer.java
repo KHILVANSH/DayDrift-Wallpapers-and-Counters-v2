@@ -42,6 +42,7 @@ public class VideoWallpaperRenderer {
     private MediaPlayer mediaPlayer;
     private boolean isPrepared = false;
     private boolean isPausedRequested = false;
+    private int lastPlaybackPosition = 0;
 
     private int overlayTextureId = 0;
     private Bitmap overlayBitmap;
@@ -259,6 +260,10 @@ public class VideoWallpaperRenderer {
     }
 
     public void startVideo(String videoPath) {
+        startVideo(videoPath, 0);
+    }
+
+    public void startVideo(String videoPath, int startPosition) {
         if (videoPath == null) return;
         File f = new File(videoPath);
         if (!f.exists()) return;
@@ -278,8 +283,8 @@ public class VideoWallpaperRenderer {
             mediaPlayer.setLooping(true);
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
                 AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_UNKNOWN)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
                         .build();
                 mediaPlayer.setAudioAttributes(audioAttributes);
             }
@@ -313,6 +318,9 @@ public class VideoWallpaperRenderer {
                         float scaleY = surfaceAspect / videoAspect;
                         Matrix.scaleM(mvpMatrix, 0, 1.0f, scaleY, 1.0f);
                     }
+                }
+                if (startPosition > 0) {
+                    try { mp.seekTo(startPosition); } catch (Exception ignored) {}
                 }
                 if (!isPausedRequested) {
                     try {
@@ -444,9 +452,21 @@ public class VideoWallpaperRenderer {
         }
     }
 
+    public int getCurrentPosition() {
+        if (mediaPlayer != null && isPrepared) {
+            try {
+                return mediaPlayer.getCurrentPosition();
+            } catch (Exception ignored) {}
+        }
+        return lastPlaybackPosition;
+    }
+
     public void releaseMediaPlayer() {
         isPrepared = false;
         if (mediaPlayer != null) {
+            try {
+                lastPlaybackPosition = mediaPlayer.getCurrentPosition();
+            } catch (Exception ignored) {}
             try {
                 if (mediaPlayer.isPlaying()) mediaPlayer.stop();
                 mediaPlayer.reset();

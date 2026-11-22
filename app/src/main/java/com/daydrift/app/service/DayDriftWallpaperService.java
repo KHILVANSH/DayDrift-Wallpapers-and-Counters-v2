@@ -64,8 +64,10 @@ public class DayDriftWallpaperService extends WallpaperService {
         private MediaPlayer directMediaPlayer;
         private boolean isDirectPrepared = false;
         private boolean isDirectPausedRequested = false;
+        private int lastDirectPosition = 0;
+        private int lastRendererPosition = 0;
 
-        private void startDirectVideoFallback(android.view.Surface surface, String videoPath) {
+        private void startDirectVideoFallback(android.view.Surface surface, String videoPath, int startPosition) {
             releaseDirectMediaPlayer();
             isDirectPrepared = false;
             isDirectPausedRequested = false;
@@ -79,14 +81,17 @@ public class DayDriftWallpaperService extends WallpaperService {
                 directMediaPlayer.setLooping(true);
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     AudioAttributes audioAttributes = new AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_UNKNOWN)
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
                             .build();
                     directMediaPlayer.setAudioAttributes(audioAttributes);
                 }
                 directMediaPlayer.setVolume(0f, 0f);
                 directMediaPlayer.setOnPreparedListener(mp -> {
                     isDirectPrepared = true;
+                    if (startPosition > 0) {
+                        try { mp.seekTo(startPosition); } catch (Exception ignored) {}
+                    }
                     if (!isDirectPausedRequested) {
                         try { mp.start(); } catch (Exception ignored) {}
                     }
@@ -108,6 +113,9 @@ public class DayDriftWallpaperService extends WallpaperService {
         private void releaseDirectMediaPlayer() {
             isDirectPrepared = false;
             if (directMediaPlayer != null) {
+                try {
+                    lastDirectPosition = directMediaPlayer.getCurrentPosition();
+                } catch (Exception ignored) {}
                 try {
                     if (directMediaPlayer.isPlaying()) directMediaPlayer.stop();
                     directMediaPlayer.reset();
@@ -161,32 +169,26 @@ public class DayDriftWallpaperService extends WallpaperService {
         public void onVisibilityChanged(boolean visible) {
             this.visible = visible;
             if (visible) {
-                WallpaperConfig config = wallpaperRepo.getConfig();
-                if (isVideoMode() && config != null && config.restartVideoOnScreenOn) {
-                    if (videoRenderer != null) {
-                        videoRenderer.restartToBeginning();
-                    }
-                    if (directMediaPlayer != null && isDirectPrepared) {
-                        try {
-                            directMediaPlayer.seekTo(0);
-                            if (!isDirectPausedRequested) directMediaPlayer.start();
-                        } catch (Exception ignored) {}
-                    }
-                }
                 updateEngineState();
                 new com.daydrift.app.data.UpdateManager().checkSilentBackgroundUpdate(getApplicationContext());
             } else {
                 handler.removeCallbacks(canvasDrawRunnable);
                 handler.removeCallbacks(videoDrawRunnable);
-                if (directMediaPlayer != null) {
-                    isDirectPausedRequested = true;
-                    if (isDirectPrepared) {
-                        try { directMediaPlayer.pause(); } catch (Exception ignored) {}
-                    }
+
+                // CRITICAL RESOURCE RELEASE:
+                // When wallpaper is not visible (Camera app opened, screen turned off, or another app in foreground),
+                // completely stop and release all MediaPlayer instances so that hardware video encoders,
+                // decoders, and audio sessions are 100% freed for camera video recording!
+                if (directMediaPlayer != null && isDirectPrepared) {
+                    try {
+                        lastDirectPosition = directMediaPlayer.getCurrentPosition();
+                    } catch (Exception ignored) {}
                 }
                 if (videoRenderer != null) {
-                    videoRenderer.setPaused(true);
+                    lastRendererPosition = videoRenderer.getCurrentPosition();
                 }
+                releaseAllVideoPlayers();
+                currentPlayingVideoPath = null;
             }
         }
 
@@ -230,7 +232,12 @@ public class DayDriftWallpaperService extends WallpaperService {
 
             if (isVideoMode()) {
                 handler.removeCallbacks(canvasDrawRunnable);
-                String videoPath = config.videoUri;
+                String rawVideoPath = config.videoUri;
+                String videoPath = com.daydrift.app.util.VideoSanitizer.sanitizeVideo(getApplicationContext(), rawVideoPath);
+                if (videoPath != null && !videoPath.equals(rawVideoPath)) {
+                    config.videoUri = videoPath;
+                    wallpaperRepo.saveConfig(config);
+                }
 
                 if (!videoPath.equals(currentPlayingVideoPath)) {
                     releaseAllVideoPlayers();
@@ -241,11 +248,14 @@ public class DayDriftWallpaperService extends WallpaperService {
                         initialized = false;
                     }
 
+                    int resumePos = config.restartVideoOnScreenOn ? 0 : lastRendererPosition;
+                    int directResumePos = config.restartVideoOnScreenOn ? 0 : lastDirectPosition;
+
                     if (initialized) {
-                        videoRenderer.startVideo(videoPath);
+                        videoRenderer.startVideo(videoPath, resumePos);
                         currentPlayingVideoPath = videoPath;
                     } else {
-                        startDirectVideoFallback(holder.getSurface(), videoPath);
+                        startDirectVideoFallback(holder.getSurface(), videoPath, directResumePos);
                         currentPlayingVideoPath = videoPath;
                     }
                 } else {
